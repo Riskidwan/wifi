@@ -1,17 +1,20 @@
 
-<?php function formatBytes($bytes, $decimal = null){
+<?php function formatBytes($bytes, $decimal = null)
+{
     $satuan = ['Bytes', 'Kb', 'Mb', 'Gb', 'Tb'];
     $i = 0;
     while ($bytes > 1024) {
         $bytes /= 1024;
         $i++;
     }
-    return round($bytes, $decimal) .'-' . $satuan[$i];
+    return round($bytes, $decimal) . '-' . $satuan[$i];
 }
 
 
-function formatWaNumber($phone) {
-    if (!$phone) return '';
+function formatWaNumber($phone)
+{
+    if (!$phone)
+        return '';
     $phone = preg_replace('/[^\d]/', '', $phone);
     if (substr($phone, 0, 1) === '0') {
         return '62' . substr($phone, 1);
@@ -22,7 +25,8 @@ function formatWaNumber($phone) {
     return $phone;
 }
 
-function getInvoiceWaMessage($invoice) {
+function getInvoiceWaMessage($invoice)
+{
     $periodStart = \Carbon\Carbon::parse($invoice->billing_period_start)->format('d M Y');
     $periodEnd = \Carbon\Carbon::parse($invoice->billing_period_end)->format('d M Y');
     $dueDate = \Carbon\Carbon::parse($invoice->due_date)->format('d M Y');
@@ -46,47 +50,25 @@ function getInvoiceWaMessage($invoice) {
     $totalAmountFormatted = number_format($totalAmount, 0, ',', '.');
 
     // Format pesan
-    $message = "📱 *{$companyName}*\n";
-    $message .= "Jl. {$companyAddress}\n";
-    $message .= "📞 {$companyPhone} | ✉️ {$companyEmail}\n\n";
-
-    $message .= "📋 *INVOICE TAGIHAN*\n";
-    $message .= "No. Invoice: *{$invoice->invoice_number}*\n";
-    $message .= "Tanggal: {$invoiceDate}\n";
-    $message .= "Pelanggan: *{$invoice->pelanggan->nama_pelanggan}*\n";
-    $message .= "Kode: {$invoice->pelanggan->kode_pelanggan}\n\n";
-
-    $message .= "📦 *DETAIL TAGIHAN*\n";
-    $message .= "Paket Internet: *{$invoice->paket_nama}*\n";
-    $message .= "Periode: {$periodStart} - {$periodEnd}\n";
-    $message .= "Jumlah: Rp {$amountFormatted}\n\n";
-
-    $message .= "🧾 *RINGKASAN*\n";
-    $message .= "Subtotal: Rp {$amountFormatted}\n";
-    $message .= "PPN ({$ppnPercent}%): Rp {$ppnAmountFormatted}\n";
-    $message .= "*Total: Rp {$totalAmountFormatted}*\n\n";
-
-    $message .= "⏰ *JATUH TEMPO*\n";
-    $message .= "Tanggal: *{$dueDate}*\n\n";
-
-    $message .= "💳 *INFORMASI PEMBAYARAN*\n";
-    $message .= "Transfer ke rekening:\n";
-    $message .= "🏦 BCA 1234567890\n";
-    $message .= "💳 a.n {$companyName}\n\n";
-
-    $message .= "📲 *KONFIRMASI*\n";
-    $message .= "Setelah bayar, konfirmasi ke nomor ini dengan:\n";
-    $message .= "1. Nama pelanggan\n";
-    $message .= "2. Tanggal & jumlah transfer\n";
-    $message .= "3. Bukti transfer (screenshot)\n\n";
-
-    $message .= "📄 *INVOICE RESMI*\n";
-    $message .= "Download invoice PDF:\n";
-    $message .= "https://isp-markisa.com/invoices/{$invoice->id}/preview/advanced\n\n";
-
-    $message .= "🙏 Terima kasih atas kepercayaan Anda!\n";
-    $message .= "Jangan ragu hubungi kami untuk pertanyaan apa pun.";
-
+    // Format pesan sesuai permintaan baru
+    $message = "Tagihan Anda Sudah Terbit\n\n";
+    $message .= "Pelanggan Yth.\n";
+    $message .= "Bpk/Ibu *{$invoice->pelanggan->nama_pelanggan}*,\n";
+    $message .= "ID pelanggan *{$invoice->pelanggan->kode_pelanggan}*\n\n";
+    $message .= "Tagihan Anda sudah terbit dengan rincian sebagai berikut.\n";
+    $message .= "No. Invoice : *{$invoice->invoice_number}*\n";
+    $message .= "Periode : *{$periodStart}*\n"; // Pastikan format periodStart sudah "Maret 2026"
+    $message .= "Paket Internet : *{$invoice->paket_nama}*\n";
+    $message .= "Jatuh tempo : *{$dueDate}*\n";
+    $message .= "Total Tagihan *Rp. {$totalAmountFormatted}*\n\n";
+    $message .= "Pembayaran dapat dilakukan melalui transfer ke rekening kami berikut:\n\n";
+    $message .= "*BRI an. PT MARKISA TECHNOLOGY*\n";
+    $message .= "*No. Rek. 0069-01-555666-56-3*\n\n";
+    $message .= "Mohon melakukan pembayaran sebelum tanggal jatuh tempo agar layanan Anda tetap aktif.\n\n";
+    $message .= "kirimkan bukti transfer ke nomer yang tertera dibawah ini untuk konfirmasi pembayaran.\n\n";
+    $message .= "Customer Service : 081572024200\n\n";
+    $message .= "Terima kasih,\n";
+    $message .= "*MARKISANET, caur*";
     return $message;
 }
 

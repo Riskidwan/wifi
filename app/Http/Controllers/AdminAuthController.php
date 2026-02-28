@@ -3,120 +3,184 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\MikrotikSetting;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\MikrotikSetting; // Tambahkan ini
-use App\Models\RouterosAPI;  
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\RateLimiter;
 use Spatie\Activitylog\Models\Activity;
-
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AdminAuthController extends Controller
 {
-    // 👉 HALAMAN LOGIN
-    public function showLoginForm()
+
+    /*
+     =====================================
+     LOGIN FORM
+     =====================================
+     */
+    public function showLoginForm(Request $request)
     {
-        return view('auth.login');
+        $lockoutSeconds = 0;
+        $key = Str::lower($request->input('email', session('_lockout_email', ''))) . '|' . $request->ip();
+
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $lockoutSeconds = RateLimiter::availableIn($key);
+        }
+
+        return view('auth.login', compact('lockoutSeconds'));
     }
 
-    // 👉 PROSES LOGIN
-    // 👉 PROSES LOGIN
-public function login(Request $request)
-{
-    $request->validate([
-        'email' => 'required|email',
-        'password' => 'required|string|min:6',
-    ]);
+    protected function throttleKey(Request $request)
+    {
+        return Str::lower($request->input('email')) . '|' . $request->ip();
+    }
 
-    $credentials = $request->only('email', 'password');
+    /*
+     =====================================
+     LOGIN PROCESS
+     =====================================
+     */
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email' => 'required|email',
+            'password' => 'required|string',
+        ]);
 
-    if (Auth::attempt($credentials, $request->boolean('remember'))) {
+        $key = $this->throttleKey($request);
+
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+            session(['_lockout_email' => $request->input('email')]);
+            return back()->withErrors([
+                'email' => "Terlalu banyak percobaan login. Tunggu {$seconds} detik."
+            ])->with('lockout_seconds', $seconds);
+        }
+
+        if (!Auth::attempt($request->only('email', 'password'))) {
+            RateLimiter::hit($key, 60);
+            session(['_lockout_email' => $request->input('email')]);
+
+            $attempts = RateLimiter::attempts($key);
+
+            // Cek apakah setelah hit ini sudah mencapai batas
+            if (RateLimiter::tooManyAttempts($key, 3)) {
+                $seconds = RateLimiter::availableIn($key);
+                return back()->withErrors([
+                    'email' => "Terlalu banyak percobaan login. Tunggu {$seconds} detik."
+                ])->with('lockout_seconds', $seconds);
+            }
+
+            $sisa = 3 - $attempts;
+            return back()->withErrors(['email' => "Email / Password salah. (Percobaan sisa {$sisa} kesempatan)"]);
+        }
+
+        RateLimiter::clear($key);
+
         $request->session()->regenerate();
 
-         // ✅ LOG AKTIVITAS LOGIN
-        Activity::create([
-            'log_name' => 'auth',
-            'description' => 'User ' . auth()->user()->name . ' berhasil login',
-            'causer_id' => auth()->id(),
-            'causer_type' => get_class(auth()->user()),
-            'properties' => ['ip' => $request->ip()],
+        $user = Auth::user();
+
+        /*
+         ==============================
+         SINGLE SESSION (AUTO TENDANG)
+         ==============================
+         */
+        DB::table('sessions')
+            ->where('user_id', $user->id)
+            ->where('id', '!=', session()->getId())
+            ->delete();
+
+
+        $request->session()->regenerate();
+
+        $user->update([
+            'session_id' => session()->getId(),
+            'login_ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
         ]);
 
-        // ✅ Ambil setting dari database
-        $mikrotik = MikrotikSetting::first();
 
-        // Jika belum ada data atau IP kosong
-        if (!$mikrotik || empty($mikrotik->ip)) {
+
+
+        /*
+         ==============================
+         LOGIN LOG
+         ==============================
+         */
+        Activity::create([
+            'log_name' => 'auth',
+            'description' => 'User ' . $user->name . ' login',
+            'causer_id' => $user->id,
+            'causer_type' => get_class($user),
+        ]);
+
+        /*
+         ==============================
+         CEK KONEKSI MIKROTIK
+         ==============================
+         */
+        $mikrotikService = app(\App\Services\MikrotikService::class);
+
+        if (!$mikrotikService->isConnected()) {
             return redirect()->route('setting.index')
-                ->with('warning', 'Silakan isi konfigurasi MikroTik terlebih dahulu!');
+                ->with('warning', '⚠️ MikroTik belum terhubung! Silakan konfigurasi koneksi MikroTik terlebih dahulu.');
         }
 
-        // ✅ Simpan ke session
-        $request->session()->put('ip', $mikrotik->ip);
-        $request->session()->put('user', $mikrotik->username);
-        $request->session()->put('password', $mikrotik->password);
-
-        // ✅ Cek koneksi MikroTik
-        try {
-            $API = new RouterosAPI();
-            $API->timeout = 5;
-            
-            if ($API->connect($mikrotik->ip, $mikrotik->username, $mikrotik->password)) {
-                $API->disconnect();
-                return redirect()->route('dashboard.index');
-            } else {
-                return redirect()->route('setting.index')
-                    ->with('error', 'Gagal koneksi ke MikroTik!');
-            }
-        } catch (\Exception $e) {
-            \Log::error("Koneksi MikroTik error: " . $e->getMessage());
-            return redirect()->route('setting.index')
-                ->with('error', 'Error koneksi ke MikroTik: ' . $e->getMessage());
+        // Set session credentials dari database agar dashboard bisa connect
+        $setting = \App\Models\MikrotikSetting::first();
+        if ($setting) {
+            $request->session()->put('ip', $setting->ip);
+            $request->session()->put('user', $setting->username);
+            $request->session()->put('password', $setting->password);
         }
+
+        return redirect()->route('dashboard.index');
     }
 
-    return back()->withErrors([
-        'email' => 'Email atau password salah.',
-    ])->withInput();
-}
 
-    // 👉 LOGOUT
+
+
+    /*
+     =====================================
+     LOGOUT
+     =====================================
+     */
     public function logout(Request $request)
     {
-        // ✅ LOG AKTIVITAS LOGOUT
-    if (auth()->check()) {
-        Activity::create([
-            'log_name' => 'auth',
-            'description' => 'User ' . auth()->user()->name . ' logout',
-            'causer_id' => auth()->id(),
-            'causer_type' => get_class(auth()->user()),
-            'properties' => ['ip' => $request->ip()],
-        ]);
-    }
+        $user = Auth::user();
+
+        if ($user) {
+            $user->update(['session_id' => null]);
+        }
+
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
         return redirect('/login');
     }
 
-    // 👉 DAFTAR ADMIN
+    /*
+     =====================================
+     ADMIN CRUD
+     =====================================
+     */
     public function index()
     {
         $admins = User::all();
         return view('admin.index', compact('admins'))
-            ->with('menu', 'admin')
-            ->with('submenu', '');
+            ->with('menu', 'admin');
     }
 
-    // 👉 HALAMAN TAMBAH ADMIN
     public function create()
     {
         return view('admin.create')
-            ->with('menu', 'admin')
-            ->with('submenu', '');
+            ->with('menu', 'admin');
     }
 
-    // 👉 SIMPAN ADMIN BARU
     public function store(Request $request)
     {
         $request->validate([
@@ -124,32 +188,32 @@ public function login(Request $request)
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6|confirmed',
         ]);
-        Activity::create([
-    'log_name' => 'admin',
-    'description' => 'Menambah admin ' . $request->name,
-    'causer_id' => auth()->id(),
-    'causer_type' => get_class(auth()->user()),
-]);
 
-        User::create([
+        $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
 
-        return redirect()->route('admin.index')->with('success', 'Admin berhasil ditambahkan!');
+        Activity::create([
+            'log_name' => 'admin',
+            'description' => 'Menambah admin ' . $user->name,
+            'causer_id' => auth()->id(),
+            'causer_type' => get_class(auth()->user()),
+        ]);
+
+        return redirect()->route('admin.index')
+            ->with('success', 'Admin berhasil ditambahkan!');
     }
 
-    // 👉 HALAMAN EDIT ADMIN
     public function edit($id)
     {
         $admin = User::findOrFail($id);
+
         return view('admin.edit', compact('admin'))
-            ->with('menu', 'admin')
-            ->with('submenu', '');
+            ->with('menu', 'admin');
     }
 
-    // 👉 UPDATE ADMIN
     public function update(Request $request, $id)
     {
         $admin = User::findOrFail($id);
@@ -160,44 +224,43 @@ public function login(Request $request)
             'password' => 'nullable|string|min:6|confirmed',
         ]);
 
-        // Di update()
-Activity::create([
-    'log_name' => 'admin',
-    'description' => 'Mengupdate admin ' . $admin->name,
-    'causer_id' => auth()->id(),
-    'causer_type' => get_class(auth()->user()),
-]);
-
         $data = [
             'name' => $request->name,
             'email' => $request->email,
         ];
 
-        // Hanya update password jika diisi
         if ($request->filled('password')) {
             $data['password'] = Hash::make($request->password);
         }
 
         $admin->update($data);
 
-        return redirect()->route('admin.index')->with('success', 'Admin berhasil diperbarui!');
+        Activity::create([
+            'log_name' => 'admin',
+            'description' => 'Mengupdate admin ' . $admin->name,
+            'causer_id' => auth()->id(),
+            'causer_type' => get_class(auth()->user()),
+        ]);
+
+        return redirect()->route('admin.index')
+            ->with('success', 'Admin berhasil diperbarui!');
     }
 
-    // 👉 HAPUS ADMIN
     public function destroy($id)
     {
-        // Di destroy()
-Activity::create([
-    'log_name' => 'admin',
-    'description' => 'Menghapus admin ' . $user->name,
-    'causer_id' => auth()->id(),
-    'causer_type' => get_class(auth()->user()),
-]);
         if ($id == auth()->id()) {
             return back()->withErrors(['error' => 'Tidak bisa menghapus akun sendiri.']);
         }
 
         $user = User::findOrFail($id);
+
+        Activity::create([
+            'log_name' => 'admin',
+            'description' => 'Menghapus admin ' . $user->name,
+            'causer_id' => auth()->id(),
+            'causer_type' => get_class(auth()->user()),
+        ]);
+
         $user->delete();
 
         return back()->with('success', 'Admin berhasil dihapus!');

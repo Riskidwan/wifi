@@ -1,3 +1,7 @@
+@php 
+    $menu = $menu ?? ''; 
+    $submenu = $submenu ?? ''; 
+@endphp
 <div class="sidebar sidebar-style-2">
     <div class="sidebar-wrapper scrollbar scrollbar-inner">
         <div class="sidebar-content">
@@ -36,17 +40,15 @@
                         <ul class="nav nav-collapse">
                             <li>
                                 <a href="{{ route('pppoe.secret') }}">
-                                    <span class="sub-item {{ $submenu == 'secret' ? 'active' : '' }}">PPPoE
-                                        Secret</span>
+                                    <span class="sub-item {{ ($submenu ?? '') == 'secret' ? 'active' : '' }}">PPPoE Secret</span>
                                 </a>
                             </li>
                             <li>
                                 <a href="{{ route('pppoe.active') }}">
-                                    <span class="sub-item {{ $submenu == 's-active' ? 'active' : '' }}">PPPoE
-                                        Active</span>
+                                 <span class="sub-item {{ ($submenu ?? '') == 's-active' ? 'active' : '' }}">PPPoE Active</span>
                                 </a>
                             </li>
-                 
+
                         </ul>
                     </div>
 
@@ -88,7 +90,7 @@
                     </a>
                     <div class="collapse" id="base3">
                         <ul class="nav nav-collapse">
-                            
+
                             <li>
                                 <a href="{{ route('report-up.index') }}">
                                     <span class="sub-item {{ $submenu == 'traffic-up' ? 'active' : '' }}">Report
@@ -215,13 +217,15 @@
         </ul>
     </div>
 </li>
+
+
                 <li class="nav-item {{ $menu == 'setting' ? 'active' : '' }}">
                     <a href="{{ route('setting.index') }}"> <!-- ✅ Diperbaiki di sini -->
                         <i class="fas fa-cog"></i>
                         <p>Setting</p>
                     </a>
                 </li>
-                
+
 
             </ul>
         </div>

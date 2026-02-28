@@ -187,8 +187,14 @@ $(document).ready(function() {
                 $.get(`/api/pelanggan/${pelangganId}/paket`)
                     .done(function(paketData) {
                         let harga = parseFloat(paketData.harga) || 0;
-                        let ppn = parseFloat(paketData.ppn_persen) || 0;
-                        let total = harga * (1 + ppn / 100) * jumlahBulan;
+                        let ppnPersen = paketData.ppn_aktif ? (parseFloat(paketData.ppn_persen) || 0) : 0;
+                        let diskonPersen = paketData.diskon_aktif ? (parseFloat(paketData.diskon_persen) || 0) : 0;
+                        
+                        let ppn = harga * (ppnPersen / 100);
+                        let diskon = harga * (diskonPersen / 100);
+                        let totalBulanan = harga + ppn - diskon;
+                        let total = totalBulanan * jumlahBulan;
+                        
                         $('#totalBayar').val('Rp ' + Math.round(total).toLocaleString('id-ID'));
                         $('input[name="amount_paid"]').val(Math.round(total));
                     });

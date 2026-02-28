@@ -67,9 +67,9 @@
                     <div class="card">
                         <div class="d-flex justify-content-between align-items-center">
     <h4 class="card-title">Rincian Pemasukan</h4>
-    <button class="btn btn-success" data-toggle="modal" data-target="#addIncomeModal">
+    <!-- <button class="btn btn-success" data-toggle="modal" data-target="#addIncomeModal">
         <i class="fas fa-plus"></i> Tambah Pemasukan
-    </button>
+    </button> -->
 </div>  
                         <div class="card-body">
                             <!-- Ganti bagian ini -->
@@ -125,9 +125,9 @@
                     <div class="card">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <h4 class="card-title">Rincian Pengeluaran</h4>
-                            <button class="btn btn-primary" data-toggle="modal" data-target="#addExpenseModal">
+                            <!-- <button class="btn btn-primary" data-toggle="modal" data-target="#addExpenseModal">
                                 <i class="fas fa-plus"></i> Tambah Pengeluaran
-                            </button>
+                            </button> -->
                         </div>
                         <div class="card-body">
                             @if($expenseList->isEmpty())

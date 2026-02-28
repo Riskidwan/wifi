@@ -12,6 +12,7 @@ class BillingConfig extends Model
         'company_phone',
         'company_email',
         'billing_start_day',
-        'due_days_after_period'
+        'due_days_after_period',
+        'wa_token',
     ];
 }

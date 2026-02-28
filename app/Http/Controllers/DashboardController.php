@@ -9,8 +9,7 @@ use App\Services\MikrotikService;
 
 
 class DashboardController extends Controller
-{
-public function index(MikrotikService $mikrotikService)
+{    public function index(MikrotikService $mikrotikService)
     {
         $ip = session()->get('ip');
         $user = session()->get('user');
@@ -45,14 +44,16 @@ public function index(MikrotikService $mikrotikService)
                 'identity' => $identity[0]['name'],
             ];
 
-    if (!$mikrotikService->isConnected()) {
-        return redirect()->route('setting.index')
-            ->with('warning', 'Koneksi ke MikroTik gagal! Periksa konfigurasi.');
-    }
+            if (!$mikrotikService->isConnected()) {
+                return redirect()->route('setting.index')
+                    ->with('warning', 'Koneksi ke MikroTik gagal! Periksa konfigurasi.');
+            }
             return view('dashboard', $data);
-        } else {
+        }
+        else {
 
-            return redirect('failed');
+            return redirect()->route('setting.index')
+                ->with('warning', '⚠️ Koneksi MikroTik gagal! Periksa konfigurasi di halaman Setting.');
         }
     }
 
@@ -75,9 +76,11 @@ public function index(MikrotikService $mikrotikService)
             ];
 
             return view('realtime.cpu', $data);
-        } else {
+        }
+        else {
 
-            return view('failed');
+            return redirect()->route('setting.index')
+                ->with('warning', '⚠️ Koneksi MikroTik gagal! Periksa konfigurasi di halaman Setting.');
         }
     }
 
@@ -100,9 +103,11 @@ public function index(MikrotikService $mikrotikService)
             ];
 
             return view('realtime.uptime', $data);
-        } else {
+        }
+        else {
 
-            return view('failed');
+            return redirect()->route('setting.index')
+                ->with('warning', '⚠️ Koneksi MikroTik gagal! Periksa konfigurasi di halaman Setting.');
         }
     }
 
@@ -134,31 +139,32 @@ public function index(MikrotikService $mikrotikService)
             // dd($data);
 
             return view('realtime.traffic', $data);
-        } else {
+        }
+        else {
 
-            return view('failed');
+            return redirect()->route('setting.index')
+                ->with('warning', '⚠️ Koneksi MikroTik gagal! Periksa konfigurasi di halaman Setting.');
         }
     }
 
 
 
-  public function load()
-{
-    $ip = session()->get('ip');
-    $user = session()->get('user');
-    $password = session()->get('password');
-    $API = new RouterosAPI();
-    $API->debug = false;
+    public function load()    {
+        $ip = session()->get('ip');
+        $user = session()->get('user');
+        $password = session()->get('password');
+        $API = new RouterosAPI();
+        $API->debug = false;
 
-    if ($API->connect($ip, $user, $password)) {
-        // Ambil PPPoE Active
-        $active = $API->comm('/ppp/active/print');
+        if ($API->connect($ip, $user, $password)) {
+            // Ambil PPPoE Active
+            $active = $API->comm('/ppp/active/print');
 
-        return view('realtime.load', compact('active'));
-    }
+            return view('realtime.load', compact('active'));
+        }
 
-    return view('failed');
-}
+        return redirect()->route('setting.index')
+            ->with('warning', '⚠️ Koneksi MikroTik gagal! Periksa konfigurasi di halaman Setting.');    }
 }
 
 error_reporting(0);

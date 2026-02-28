@@ -121,14 +121,12 @@
 </td>
                                             <td>
                                                 @if($invoice->status == 'unpaid' && $invoice->pelanggan->no_hp)
-                                                    @php
-                                                        $waNumber = formatWaNumber($invoice->pelanggan->no_hp);
-                                                        $waMessage = getInvoiceWaMessage($invoice);
-                                                    @endphp
-                                                    <a href="https://web.whatsapp.com/send?phone={{ $waNumber }}&text={{ urlencode($waMessage) }}" 
-                                                       class="btn btn-sm btn-success" target="_blank" title="Kirim WA">
+                                                    <button class="btn btn-sm btn-success btn-send-wa" 
+                                                            data-invoice-id="{{ $invoice->id }}" 
+                                                            data-nama="{{ $invoice->pelanggan->nama_pelanggan }}"
+                                                            title="Kirim WA">
                                                         <i class="fab fa-whatsapp"></i>
-                                                    </a>
+                                                    </button>
                                                 @endif
                                                 <a href="{{ route('invoices.show', $invoice) }}" class="btn btn-sm btn-info">
                                                     <i class="fas fa-eye"></i>
@@ -179,30 +177,75 @@
         ]
     });
 });
-function sendAllWa() {
-    // Buka WhatsApp Web di tab baru
-    const waWindow = window.open("https://web.whatsapp.com", "_blank");
+
+// === Kirim WA per invoice ===
+$(document).on('click', '.btn-send-wa', function() {
+    const btn = $(this);
+    const invoiceId = btn.data('invoice-id');
+    const nama = btn.data('nama');
     
-    // Ambil semua invoice yang belum bayar
-    const invoices = [
+    if (!confirm('Kirim tagihan via WA ke ' + nama + '?')) return;
+    
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i>');
+    
+    $.ajax({
+        url: '{{ route("whatsapp.send-invoice") }}',
+        method: 'POST',
+        data: { _token: '{{ csrf_token() }}', invoice_id: invoiceId },
+        success: function(res) {
+            if (res.success) {
+                btn.removeClass('btn-success').addClass('btn-secondary').html('<i class="fas fa-check"></i>');
+                alert('✅ ' + res.message);
+            } else {
+                btn.prop('disabled', false).html('<i class="fab fa-whatsapp"></i>');
+                alert('❌ ' + res.message);
+            }
+        },
+        error: function(xhr) {
+            btn.prop('disabled', false).html('<i class="fab fa-whatsapp"></i>');
+            const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Gagal mengirim';
+            alert('❌ ' + msg);
+        }
+    });
+});
+
+// === Kirim Semua WA (bulk) ===
+function sendAllWa() {
+    const invoiceIds = [
         @foreach($invoices as $invoice)
-            {
-                phone: "{{ formatWaNumber($invoice->pelanggan->no_hp) }}",
-                message: `{{ addslashes(getInvoiceWaMessage($invoice)) }}`
-            },
+            @if($invoice->status == 'unpaid' && $invoice->pelanggan->no_hp)
+                {{ $invoice->id }},
+            @endif
         @endforeach
     ];
-
-    // Delay antar pesan (2 detik)
-    let delay = 0;
-    invoices.forEach((inv, index) => {
-        setTimeout(() => {
-            if (waWindow && !waWindow.closed) {
-                // Buka chat dengan nomor pelanggan
-                waWindow.location.href = `https://web.whatsapp.com/send?phone=${inv.phone}&text=${encodeURIComponent(inv.message)}`;
+    
+    if (invoiceIds.length === 0) {
+        alert('Tidak ada invoice unpaid untuk dikirim.');
+        return;
+    }
+    
+    if (!confirm('Kirim tagihan WA ke ' + invoiceIds.length + ' pelanggan?')) return;
+    
+    // Disable tombol
+    const btn = $('[onclick="sendAllWa()"]');
+    btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Mengirim...');
+    
+    $.ajax({
+        url: '{{ route("whatsapp.send-bulk-invoice") }}',
+        method: 'POST',
+        data: { _token: '{{ csrf_token() }}', invoice_ids: invoiceIds },
+        success: function(res) {
+            btn.prop('disabled', false).html('<i class="fab fa-whatsapp"></i> Kirim Semua via WA');
+            alert(res.message);
+            if (res.errors && res.errors.length > 0) {
+                console.log('Errors:', res.errors);
             }
-        }, delay);
-        delay += 2000; // 2 detik per pesan
+        },
+        error: function(xhr) {
+            btn.prop('disabled', false).html('<i class="fab fa-whatsapp"></i> Kirim Semua via WA');
+            const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Gagal mengirim';
+            alert('❌ ' + msg);
+        }
     });
 }
 </script>

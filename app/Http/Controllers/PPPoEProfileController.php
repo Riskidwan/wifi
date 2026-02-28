@@ -2,162 +2,135 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\RouterosAPI;
 use Illuminate\Http\Request;
+use App\Models\Paket;
+use App\Models\RouterosAPI;
 use RealRashid\SweetAlert\Facades\Alert;
 
-class PPPoEProfileController extends Controller
+class PaketController extends Controller
 {
+    /*
+    |--------------------------------------------------------------------------
+    | INDEX
+    |--------------------------------------------------------------------------
+    */
     public function index()
     {
-        $ip = session()->get('ip');
-        $user = session()->get('user');
-        $password = session()->get('password');
-        $API = new RouterosAPI();
-        $API->debug = false;
+        $pakets = Paket::latest()->get();
 
-        if ($API->connect($ip, $user, $password)) {
-            $profiles = $API->comm('/ppp/profile/print');
-
-            $data = [
-                'menu' => 'PPPoE Profile',
-                'profiles' => $profiles,
-                'profile' => $profiles,
-                'total' => count($profiles),
-            ];
-
-            return view('pppoe.profile.index', $data);
-        }
-
-        return redirect('failed');
+        return view('paket.index', compact('pakets'));
     }
 
-    public function create()
-    {
-        return view('pppoe.profile.create');
+
+    /*
+    |--------------------------------------------------------------------------
+    | STORE (Tambah Paket + Auto Buat PPP Profile)
+    |--------------------------------------------------------------------------
+    */
+   public function store(Request $request)
+{
+    $request->validate([
+        'nama_paket'     => 'required',
+        'kecepatan'      => 'required',
+        'harga'          => 'required|numeric',
+        'local_address'  => 'required',
+        'remote_address' => 'required',
+    ]);
+
+    /*
+    ======================
+    SAVE DB
+    ======================
+    */
+    $paket = Paket::create([
+        'nama_paket'     => $request->nama_paket,
+        'kecepatan'      => $request->kecepatan,
+        'harga'          => $request->harga,
+        'local_address'  => $request->local_address,
+        'remote_address' => $request->remote_address,
+        'keterangan'     => $request->keterangan,
+        'diskon_aktif'   => $request->diskon_aktif,
+        'diskon_persen'  => $request->diskon_persen,
+        'ppn_aktif'      => $request->ppn_aktif,
+        'ppn_persen'     => $request->ppn_persen,
+    ]);
+
+    /*
+    ======================
+    CONNECT API
+    ======================
+    */
+    $API = new RouterosAPI();
+
+    if (!$API->connect(session('ip'), session('user'), session('password'))) {
+        Alert::error('Gagal', 'Tidak bisa konek ke MikroTik');
+        return back();
     }
 
-    public function store(Request $request)
-    {
-        $ip = session()->get('ip');
-        $user = session()->get('user');
-        $password = session()->get('password');
-        $API = new RouterosAPI();
-        $API->debug = false;
+    /*
+    ======================
+    ADD PROFILE
+    ======================
+    */
+    $API->comm('/ppp/profile/add', [
+        'name'           => $paket->nama_paket,
+        'local-address'  => $paket->local_address,
+        'remote-address' => $paket->remote_address,
+        'rate-limit'     => $paket->kecepatan,
+    ]);
 
-        if ($API->connect($ip, $user, $password)) {
-            $params = [
-                'name' => $request->name,
-                'local-address' => $request->local_address ?: '0.0.0.0',
-                'remote-address' => $request->remote_address ?: '0.0.0.0',
-                'rate-limit' => $request->rate_limit ?: '',
-                'use-compression' => $request->use_compression ?? 'no',
-                'use-encryption' => $request->use_encryption ?? 'no',
-                'use-mpls' => $request->use_mpls ?? 'no',
-                'use-upnp' => $request->use_upnp ?? 'no',
-                'change-tcp-mss' => $request->change_tcp_mss ?? 'yes',
-                'dns-server' => $request->dns_server ?: '',
-                'session-timeout' => $request->session_timeout ?: '',
-                'idle-timeout' => $request->idle_timeout ?: '',
-                'comment' => $request->comment ?: '',
-            ];
+    /*
+    ======================
+    VALIDASI BENAR-BENAR ADA
+    ======================
+    */
+    $check = $API->comm('/ppp/profile/print', [
+        '?name' => $paket->nama_paket
+    ]);
 
-            // Hapus key jika nilainya kosong dan tidak wajib
-            $params = array_filter($params, function ($value) {
-                return $value !== '';
-            });
-
-            $API->comm('/ppp/profile/add', $params);
-
-            Alert::success('Berhasil', 'Profil PPPoE berhasil ditambahkan.');
-            return redirect()->route('pppoe.profile.index');
-        }
-
-        return redirect('failed');
+    if (empty($check)) {
+        Alert::error('Gagal', 'Profile gagal dibuat di MikroTik (pool/gateway salah)');
+        return back();
     }
 
-    public function edit($id)
-    {
-        $ip = session()->get('ip');
-        $user = session()->get('user');
-        $password = session()->get('password');
-        $API = new RouterosAPI();
-        $API->debug = false;
+    Alert::success('Berhasil', 'Paket + PPP Profile berhasil dibuat');
+    return redirect()->route('paket.index');
+}
 
-        if ($API->connect($ip, $user, $password)) {
-            $profile = $API->comm('/ppp/profile/print', [
-                "?.id" => '*' . $id
-            ]);
 
-            if (empty($profile)) {
-                Alert::error('Gagal', 'Profil tidak ditemukan.');
-                return redirect()->route('pppoe.profile.index');
-            }
 
-            return view('pppoe.profile.edit', ['profile' => $profile[0]]);
-        }
 
-        return redirect('failed');
-    }
-
-    public function update(Request $request)
-    {
-        $ip = session()->get('ip');
-        $user = session()->get('user');
-        $password = session()->get('password');
-        $API = new RouterosAPI();
-        $API->debug = false;
-
-        if ($API->connect($ip, $user, $password)) {
-            $params = [
-                '.id' => $request->id,
-                'name' => $request->name,
-                'local-address' => $request->local_address ?: '0.0.0.0',
-                'remote-address' => $request->remote_address ?: '0.0.0.0',
-                'rate-limit' => $request->rate_limit ?: '',
-                'use-compression' => $request->use_compression ?? 'no',
-                'use-encryption' => $request->use_encryption ?? 'no',
-                'use-mpls' => $request->use_mpls ?? 'no',
-                'use-upnp' => $request->use_upnp ?? 'no',
-                'change-tcp-mss' => $request->change_tcp_mss ?? 'yes',
-                'dns-server' => $request->dns_server ?: '',
-                'session-timeout' => $request->session_timeout ?: '',
-                'idle-timeout' => $request->idle_timeout ?: '',
-                'comment' => $request->comment ?: '',
-            ];
-
-            // Filter hanya field yang diisi (abaikan kosong jika tidak wajib)
-            $updateParams = ['.id' => $request->id];
-            foreach ($params as $key => $value) {
-                if ($key !== '.id' && $value !== '') {
-                    $updateParams[$key] = $value;
-                }
-            }
-
-            $API->comm('/ppp/profile/set', $updateParams);
-
-            Alert::success('Berhasil', 'Profil PPPoE berhasil diperbarui.');
-            return redirect()->route('pppoe.profile.index');
-        }
-
-        return redirect('failed');
-    }
-
+    /*
+    |--------------------------------------------------------------------------
+    | DELETE (hapus paket + profile)
+    |--------------------------------------------------------------------------
+    */
     public function destroy($id)
     {
-        $ip = session()->get('ip');
-        $user = session()->get('user');
-        $password = session()->get('password');
+        $paket = Paket::findOrFail($id);
+
+        $ip       = session('ip');
+        $user     = session('user');
+        $password = session('password');
+
         $API = new RouterosAPI();
-        $API->debug = false;
 
         if ($API->connect($ip, $user, $password)) {
-            $API->comm('/ppp/profile/remove', ['.id' => '*' . $id]);
 
-            Alert::success('Berhasil', 'Profil PPPoE berhasil dihapus.');
-            return redirect()->route('pppoe.profile.index');
+            $profile = $API->comm('/ppp/profile/print', [
+                '?name' => $paket->nama_paket
+            ]);
+
+            if (!empty($profile)) {
+                $API->comm('/ppp/profile/remove', [
+                    '.id' => $profile[0]['.id']
+                ]);
+            }
         }
 
-        return redirect('failed');
+        $paket->delete();
+
+        Alert::success('Berhasil', 'Paket + Profile terhapus.');
+        return back();
     }
 }

@@ -15,8 +15,11 @@ class Paket extends Model
         'kecepatan',
         'harga',
         'keterangan',
-          'diskon_persen',
-    'ppn_aktif',
-    'ppn_persen',
+        'local_address',
+        'remote_address',
+        'diskon_persen',
+        'diskon_aktif',
+        'ppn_aktif',
+        'ppn_persen',
     ];
 }

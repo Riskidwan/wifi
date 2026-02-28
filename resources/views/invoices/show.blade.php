@@ -29,16 +29,12 @@
                                             </td>
                                            <div class="card-footer">
     @if($invoice->status == 'unpaid' && $invoice->pelanggan->no_hp)
-        @php
-            $waNumber = formatWaNumber($invoice->pelanggan->no_hp);
-            $waMessage = getInvoiceWaMessage($invoice);
-        @endphp
-        
-        <!-- ✅ LINK WA OTOMATIS -->
-       <a href="https://web.whatsapp.com/send?phone={{ $waNumber }}&text={{ urlencode($waMessage) }}" 
-   class="btn btn-success btn-block" target="_blank">
-    <i class="fab fa-whatsapp"></i> Kirim Tagihan via WhatsApp
-</a>
+        <!-- ✅ KIRIM WA OTOMATIS VIA FONNTE -->
+        <button class="btn btn-success btn-block" id="btn-send-wa-invoice" 
+                data-invoice-id="{{ $invoice->id }}"
+                data-nama="{{ $invoice->pelanggan->nama_pelanggan }}">
+            <i class="fab fa-whatsapp"></i> Kirim Tagihan via WhatsApp
+        </button>
     @endif
     
     <a href="{{ route('invoices.pdf.advanced.preview', $invoice) }}" 
@@ -93,3 +89,42 @@
     </div>
 </div>
 @endsection
+
+@push('scripts')
+<script>
+$(document).ready(function() {
+    $('#btn-send-wa-invoice').on('click', function() {
+        const btn = $(this);
+        const invoiceId = btn.data('invoice-id');
+        const nama = btn.data('nama');
+        
+        if (!confirm('Kirim tagihan via WA ke ' + nama + '?')) return;
+        
+        btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Mengirim...');
+        
+        $.ajax({
+            url: '{{ route("whatsapp.send-invoice") }}',
+            method: 'POST',
+            data: { _token: '{{ csrf_token() }}', invoice_id: invoiceId },
+            success: function(res) {
+                if (res.success) {
+                    btn.removeClass('btn-success').addClass('btn-secondary')
+                       .html('<i class="fas fa-check"></i> Terkirim!');
+                    alert('✅ ' + res.message);
+                } else {
+                    btn.prop('disabled', false)
+                       .html('<i class="fab fa-whatsapp"></i> Kirim Tagihan via WhatsApp');
+                    alert('❌ ' + res.message);
+                }
+            },
+            error: function(xhr) {
+                btn.prop('disabled', false)
+                   .html('<i class="fab fa-whatsapp"></i> Kirim Tagihan via WhatsApp');
+                const msg = xhr.responseJSON ? xhr.responseJSON.message : 'Gagal mengirim';
+                alert('❌ ' + msg);
+            }
+        });
+    });
+});
+</script>
+@endpush

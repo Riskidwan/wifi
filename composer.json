@@ -6,6 +6,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "anhskohbo/no-captcha": "^3.7",
         "barryvdh/laravel-dompdf": "^3.1",
         "doctrine/dbal": "^4.4",
         "guzzlehttp/guzzle": "^7.2",
@@ -14,7 +15,9 @@
         "laravel/tinker": "^2.5",
         "laravel/ui": "^4.6",
         "maatwebsite/excel": "^3.1",
+        "pragmarx/google2fa": "^9.0",
         "realrashid/sweet-alert": "^7.3",
+        "simplesoftwareio/simple-qrcode": "^4.2",
         "spatie/laravel-activitylog": "^4.10"
     },
     "require-dev": {
