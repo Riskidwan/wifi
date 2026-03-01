@@ -136,17 +136,20 @@
                                                                     <i class="fas fa-user-lock"></i>
                                                                 </span>
                                                             </div>
-                                                            <select name="existing_pppoe" class="form-control" style="max-height: 200px;">
-                                                                <option value="">-- Pilih akun PPPoE --</option>
+                                                            <select id="existing_pppoe_select" class="form-control" style="max-height: 200px;">
+                                                                <option value="" data-password="">-- Pilih akun PPPoE --</option>
                                                                 @foreach($pppoeSecrets as $secret)
                                                                     @if($secret['name'])
-                                                                        <option value="{{ $secret['name'] }}">
+                                                                        <option value="{{ $secret['name'] }}" data-password="{{ $secret['password'] }}">
                                                                             {{ $secret['name'] }} / {{ $secret['password'] }}
                                                                         </option>
                                                                     @endif
                                                                 @endforeach
                                                             </select>
                                                         </div>
+                                                        <!-- Hidden inputs untuk kirim ke controller -->
+                                                        <input type="hidden" name="existing_pppoe_username" id="existing_pppoe_username">
+                                                        <input type="hidden" name="existing_pppoe_password" id="existing_pppoe_password">
                                                         <small class="form-text text-muted mt-1">
                                                             Format: <code>username / password</code> — pilih salah satu akun yang sudah ada di MikroTik
                                                         </small>
@@ -351,7 +354,17 @@ $('#pelangganTable').DataTable({
         } else {
             $('#existingPppoeGroup').hide();
             $('#manualPppoeGroup').fadeIn();
+            // Reset hidden inputs ketika kembali ke manual
+            $('#existing_pppoe_username').val('');
+            $('#existing_pppoe_password').val('');
         }
+    });
+
+    // Populate hidden inputs saat pilih PPPoE dari dropdown
+    $('#existing_pppoe_select').change(function() {
+        var selected = $(this).find('option:selected');
+        $('#existing_pppoe_username').val(selected.val());
+        $('#existing_pppoe_password').val(selected.data('password'));
     });
 
     // Custom file label

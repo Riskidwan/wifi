@@ -11,7 +11,8 @@ use App\Models\Paket;
 class BillingService
 {
 
-    public function generateMonthlyInvoices()    {
+    public function generateMonthlyInvoices()
+    {
         $billingConfig = BillingConfig::first();
         $dueDays = $billingConfig->due_days_after_period ?? 5;
 
@@ -68,8 +69,9 @@ class BillingService
             $totalAmount = $hargaDasar + $ppn - $diskon;
 
 
-            $nextNumber = Invoice::count() + 1;
-            $invoiceNumber = 'INV-' . $today->format('Y') . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            // Format: INV-{ID PEL}{NO URUT}{BULAN}{TAHUN} → contoh: INV-0003010326
+            $pelangganInvoiceCount = Invoice::where('pelanggan_id', $pelanggan->id_pelanggan)->count() + 1;
+            $invoiceNumber = 'INV-' . $pelanggan->kode_pelanggan . str_pad($pelangganInvoiceCount, 2, '0', STR_PAD_LEFT) . $today->format('m') . $today->format('y');
 
             $invoice = Invoice::create([
                 'invoice_number' => $invoiceNumber,
@@ -86,5 +88,6 @@ class BillingService
             $invoices[] = $invoice;
         }
 
-        return $invoices;    }
+        return $invoices;
+    }
 }

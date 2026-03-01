@@ -294,8 +294,8 @@
         $ppn_persen = $paket ? $paket->ppn_persen : 11;
 
         $diskon_value = $diskon_aktif ? ($invoice->amount * $diskon_persen / 100) : 0;
-        $ppn_value = $ppn_aktif ? (($invoice->amount - $diskon_value) * $ppn_persen / 100) : 0;
-        $total = $invoice->amount - $diskon_value + $ppn_value;
+        $ppn_value = $ppn_aktif ? ($invoice->amount * $ppn_persen / 100) : 0;
+        $total = $invoice->total_amount ?? ($invoice->amount + $ppn_value - $diskon_value);
 
         $periode = \Carbon\Carbon::parse($invoice->billing_period_start)->translatedFormat('F Y');
     @endphp

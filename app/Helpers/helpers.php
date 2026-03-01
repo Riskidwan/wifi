@@ -41,12 +41,15 @@ function getInvoiceWaMessage($invoice)
     $companyEmail = $billingConfig->company_email ?? 'markisa@gmail.com';
     $companyAddress = $billingConfig->company_address ?? 'PEMALANG';
 
-    // Hitung PPN (sesuaikan dengan logika sistem kamu)
-    $ppnPercent = 11; // atau ambil dari billing config
-    $ppnAmount = $amount * ($ppnPercent / 100);
-    $totalAmount = $amount + $ppnAmount;
+    // Hitung PPN & Diskon dari paket
+    $paket = \App\Models\Paket::where('nama_paket', $invoice->paket_nama)->first();
+    $ppnPersen = ($paket && $paket->ppn_aktif) ? $paket->ppn_persen : 0;
+    $diskonPersen = ($paket && $paket->diskon_aktif) ? $paket->diskon_persen : 0;
 
-    $ppnAmountFormatted = number_format($ppnAmount, 0, ',', '.');
+    $ppnAmount = $amount * ($ppnPersen / 100);
+    $diskonAmount = $amount * ($diskonPersen / 100);
+    $totalAmount = $invoice->total_amount ?? ($amount + $ppnAmount - $diskonAmount);
+
     $totalAmountFormatted = number_format($totalAmount, 0, ',', '.');
 
     // Format pesan
