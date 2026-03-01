@@ -4,70 +4,50 @@ namespace App\Console\Commands;
 
 use App\Models\Invoice;
 use App\Models\Pelanggan;
+use App\Services\MikrotikService;
 use Illuminate\Console\Command;
 
 class CheckOverdueInvoices extends Command
 {
     protected $signature = 'invoices:check-overdue';
-    protected $description = 'Nonaktifkan pelanggan yang lewat jatuh tempo';
+    protected $description = 'Tandai invoice overdue & nonaktifkan pelanggan yang lewat jatuh tempo';
 
     public function handle()
     {
         $today = now()->startOfDay();
-        $pelanggans = Pelanggan::where('status_akun', 'active')->get();
+        $mikrotik = new MikrotikService();
+
+        // 1. Tandai semua invoice unpaid yang sudah lewat jatuh tempo menjadi overdue
+        $overdueCount = Invoice::where('status', 'unpaid')
+            ->whereDate('due_date', '<', $today)
+            ->update(['status' => 'overdue']);
+
+        if ($overdueCount > 0) {
+            $this->info("Menandai {$overdueCount} invoice sebagai overdue.");
+        }
+
+        // 2. Nonaktifkan pelanggan yang punya invoice overdue
+        $pelanggans = Pelanggan::where('status_akun', 'active')
+            ->whereHas('invoices', function ($q) use ($today) {
+            $q->where('status', 'overdue');
+        })
+            ->get();
+
+        if ($pelanggans->isEmpty()) {
+            $this->info('Tidak ada pelanggan yang perlu dinonaktifkan.');
+            return;
+        }
 
         foreach ($pelanggans as $pelanggan) {
-            // Cek apakah sudah bayar untuk bulan ini
-            $paidThisMonth = Invoice::where('pelanggan_id', $pelanggan->id_pelanggan)
-                ->where('billing_period_start', '<=', now()->endOfMonth())
-                ->where('billing_period_end', '>=', now()->startOfMonth())
-                ->where('status', 'paid')
-                ->exists();
+            // Update status di database
+            $pelanggan->update(['status_akun' => 'inactive']);
 
-            if (!$paidThisMonth) {
-                // Cari invoice terakhir yang unpaid
-                $lastUnpaid = Invoice::where('pelanggan_id', $pelanggan->id_pelanggan)
-                    ->where('status', 'unpaid')
-                    ->orderBy('due_date', 'desc')
-                    ->first();
+            // Disable PPPoE di MikroTik
+            $mikrotik->updatePPPoESecretStatus($pelanggan->username_pppoe, 'inactive');
 
-                if ($lastUnpaid && $lastUnpaid->due_date < $today) {
-                    // Nonaktifkan pelanggan
-                    $pelanggan->update(['status_akun' => 'inactive']);
-                    
-                    // Nonaktifkan di MikroTik
-                    $this->updatePPPoESecretStatusOnMikrotik($pelanggan->username_pppoe, 'inactive');
-                    
-                    $this->info("Nonaktifkan: {$pelanggan->nama_pelanggan} (overdue)");
-                }
-            }
+            $this->info("Nonaktifkan: {$pelanggan->nama_pelanggan} ({$pelanggan->username_pppoe})");
         }
-    }
 
-    private function updatePPPoESecretStatusOnMikrotik($username, $status)
-    {
-        $ip = session('ip');
-        $user = session('user');
-        $password = session('password');
-
-        if (!$ip || !$user) return;
-
-        $API = new \App\Models\RouterosAPI();
-        if ($API->connect($ip, $user, $password)) {
-            $secrets = $API->comm('/ppp/secret/print', ['?name' => $username]);
-            if (!empty($secrets)) {
-                $API->comm('/ppp/secret/set', [
-                    '.id' => $secrets[0]['.id'],
-                    'disabled' => $status === 'inactive' ? 'yes' : 'no'
-                ]);
-                if ($status === 'inactive') {
-                    $active = $API->comm('/ppp/active/print', ['?name' => $username]);
-                    foreach ($active as $a) {
-                        $API->comm('/ppp/active/remove', ['.id' => $a['.id']]);
-                    }
-                }
-            }
-            $API->disconnect();
-        }
+        $this->info("Selesai. {$pelanggans->count()} pelanggan dinonaktifkan.");
     }
 }

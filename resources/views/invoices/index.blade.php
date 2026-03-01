@@ -97,10 +97,9 @@
     @endif
 </td>
                                             <td>
-                                                {{ \Carbon\Carbon::parse($invoice->billing_period_start)->translatedFormat('d F Y') }}<br>
-                                                s/d {{ \Carbon\Carbon::parse($invoice->billing_period_end)->translatedFormat('d F Y') }}
+                                                {{ \Carbon\Carbon::parse($invoice->billing_period_start)->translatedFormat('F Y') }}
                                             </td>
-                                            <td>{{ \Carbon\Carbon::parse($invoice->due_date)->format('d M Y') }}</td>
+                                            <td>{{ \Carbon\Carbon::parse($invoice->due_date)->translatedFormat('d F Y') }}</td>
                                             <!-- Kolom Status -->
 <td>
     @if($invoice->status == 'paid')

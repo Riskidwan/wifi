@@ -39,7 +39,8 @@
     
     <a href="{{ route('invoices.pdf.advanced.preview', $invoice) }}" 
        class="btn btn-primary btn-block" target="_blank">
-        <i class="fas fa-file-pdf"></i> Lihat Invoice PDF
+        <i class="fas fa-file-pdf"></i> 
+        {{ $invoice->status === 'paid' ? 'Lihat Invoice Pembayaran' : 'Lihat Invoice Tagihan' }}
     </a>
 </div>
                                         </tr>
@@ -50,11 +51,10 @@
                                     <table class="table table-borderless">
                                         <tr><td><strong>Periode Tagihan</strong></td>
                                             <td>
-                                                {{ \Carbon\Carbon::parse($invoice->billing_period_start)->format('d M Y') }}<br>
-                                                s/d {{ \Carbon\Carbon::parse($invoice->billing_period_end)->format('d M Y') }}
+                                                {{ \Carbon\Carbon::parse($invoice->billing_period_start)->translatedFormat('F Y') }}
                                             </td>
                                         </tr>
-                                        <tr><td><strong>Jatuh Tempo</strong></td><td>{{ \Carbon\Carbon::parse($invoice->due_date)->format('d M Y') }}</td></tr>
+                                        <tr><td><strong>Jatuh Tempo</strong></td><td>{{ \Carbon\Carbon::parse($invoice->due_date)->translatedFormat('d F Y') }}</td></tr>
                                         <tr><td><strong>Jumlah</strong></td><td><strong>Rp {{ number_format($invoice->amount, 0, ',', '.') }}</strong></td></tr>
                                     </table>
                                 </div>
@@ -64,7 +64,7 @@
 
                             <h5>Data Pelanggan</h5>
                             <table class="table table-borderless">
-                                <tr><td><strong>Kode</strong></td><td>{{ $invoice->pelanggan->kode_pelanggan }}</td></tr>
+                                <tr><td><strong>Id Pelanggan</strong></td><td>{{ $invoice->pelanggan->kode_pelanggan }}</td></tr>
                                 <tr><td><strong>Nama</strong></td><td>{{ $invoice->pelanggan->nama_pelanggan }}</td></tr>
                                 <tr><td><strong>Paket</strong></td><td>{{ $invoice->paket_nama }}</td></tr>
                                 <tr><td><strong>Username PPPoE</strong></td><td><code>{{ $invoice->pelanggan->username_pppoe }}</code></td></tr>

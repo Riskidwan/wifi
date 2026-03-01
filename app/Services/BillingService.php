@@ -10,78 +10,81 @@ use App\Models\Paket;
 
 class BillingService
 {
-   
-    public function generateMonthlyInvoices()
-{
-    $billingConfig = BillingConfig::first();
-    $dueDays = $billingConfig->due_days_after_period ?? 5;
 
-    $pelanggans = Pelanggan::where('status_akun', 'active')
-        ->with('paket')
-        ->get();
+    public function generateMonthlyInvoices()    {
+        $billingConfig = BillingConfig::first();
+        $dueDays = $billingConfig->due_days_after_period ?? 5;
 
-    $invoices = [];
-    $today = Carbon::today();
-    
-    // Hanya generate untuk BULAN INI
-    $periodStart = $today->copy()->startOfMonth();
-    $periodEnd = $today->copy()->endOfMonth();
-    $dueDate = $periodEnd->copy()->addDays($dueDays);
+        $pelanggans = Pelanggan::where('status_akun', 'active')
+            ->with('paket')
+            ->get();
 
-    foreach ($pelanggans as $pelanggan) {
-        if (!$pelanggan->paket) continue;
+        $invoices = [];
+        $today = Carbon::today();
 
-        // Cek apakah sudah ada invoice untuk bulan ini
-        $existing = Invoice::where('pelanggan_id', $pelanggan->id_pelanggan)
-            ->where('billing_period_start', $periodStart)
-            ->first();
+        // Hanya generate untuk BULAN INI
+        $periodStart = $today->copy()->startOfMonth();
+        $periodEnd = $today->copy()->endOfMonth();
+        // Jatuh tempo = tanggal tertentu di bulan yang sama (misalnya tanggal 5)
+        $dueDate = $periodStart->copy()->addDays($dueDays - 1);
 
-         if ($existing) continue; // Sudah ada → skip
+        foreach ($pelanggans as $pelanggan) {
+            if (!$pelanggan->paket)
+                continue;
 
-        // Cek apakah sudah pernah bayar untuk bulan ini
-        $alreadyPaid = Invoice::where('pelanggan_id', $pelanggan->id_pelanggan)
-            ->where('billing_period_start', $periodStart)
-            ->where('status', 'paid')
-            ->exists();
+            // Cek apakah sudah ada invoice untuk bulan ini
+            $existing = Invoice::where('pelanggan_id', $pelanggan->id_pelanggan)
+                ->where('billing_period_start', $periodStart)
+                ->first();
 
-        if ($alreadyPaid) continue;
-  // Ambil paket
-        $paket = Paket::where('nama_paket', $pelanggan->paket->nama_paket)->first();
-        if (!$paket) continue;
+            if ($existing)
+                continue; // Sudah ada → skip
 
-        // Hitung total akhir
-        $hargaDasar = $pelanggan->paket->harga ?? 0;
-        $ppn = 0;
-        $diskon = 0;
+            // Cek apakah sudah pernah bayar untuk bulan ini
+            $alreadyPaid = Invoice::where('pelanggan_id', $pelanggan->id_pelanggan)
+                ->where('billing_period_start', $periodStart)
+                ->where('status', 'paid')
+                ->exists();
 
-        if ($paket->ppn_aktif) {
-            $ppn = $hargaDasar * ($paket->ppn_persen / 100);
+            if ($alreadyPaid)
+                continue;
+            // Ambil paket
+            $paket = Paket::where('nama_paket', $pelanggan->paket->nama_paket)->first();
+            if (!$paket)
+                continue;
+
+            // Hitung total akhir
+            $hargaDasar = $pelanggan->paket->harga ?? 0;
+            $ppn = 0;
+            $diskon = 0;
+
+            if ($paket->ppn_aktif) {
+                $ppn = $hargaDasar * ($paket->ppn_persen / 100);
+            }
+            if ($paket->diskon_aktif) {
+                $diskon = $hargaDasar * ($paket->diskon_persen / 100);
+            }
+
+            $totalAmount = $hargaDasar + $ppn - $diskon;
+
+
+            $nextNumber = Invoice::count() + 1;
+            $invoiceNumber = 'INV-' . $today->format('Y') . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+            $invoice = Invoice::create([
+                'invoice_number' => $invoiceNumber,
+                'pelanggan_id' => $pelanggan->id_pelanggan,
+                'paket_nama' => $pelanggan->paket->nama_paket,
+                'amount' => $pelanggan->paket->harga ?? 0,
+                'total_amount' => $totalAmount,
+                'billing_period_start' => $periodStart,
+                'billing_period_end' => $periodEnd,
+                'due_date' => $dueDate,
+                'status' => 'unpaid'
+            ]);
+
+            $invoices[] = $invoice;
         }
-        if ($paket->diskon_aktif) {
-            $diskon = $hargaDasar * ($paket->diskon_persen / 100);
-        }
 
-        $totalAmount = $hargaDasar + $ppn - $diskon;
-
-    
-        $nextNumber = Invoice::count() + 1;
-        $invoiceNumber = 'INV-' . $today->format('Y') . '-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-
-        $invoice = Invoice::create([
-            'invoice_number' => $invoiceNumber,
-            'pelanggan_id' => $pelanggan->id_pelanggan,
-            'paket_nama' => $pelanggan->paket->nama_paket,
-            'amount' => $pelanggan->paket->harga ?? 0,
-             'total_amount' => $totalAmount, 
-            'billing_period_start' => $periodStart,
-            'billing_period_end' => $periodEnd,
-            'due_date' => $dueDate,
-            'status' => 'unpaid'
-        ]);
-
-        $invoices[] = $invoice;
-    }
-
-    return $invoices;
-}
+        return $invoices;    }
 }

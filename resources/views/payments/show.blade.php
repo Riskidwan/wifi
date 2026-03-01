@@ -105,16 +105,16 @@
     </a>
 
     @if($payment->invoice_id)
-        <!-- Preview Invoice -->
+        <!-- Preview Surat Pembayaran -->
         <a href="{{ route('invoices.pdf.advanced.preview', $payment->invoice_id) }}" 
            class="btn btn-primary" target="_blank">
-            <i class="fas fa-eye"></i> Preview Invoice
+            <i class="fas fa-eye"></i> Lihat Invoice Pembayaran
         </a>
         
-        <!-- Download Invoice -->
+        <!-- Download Surat Pembayaran -->
         <a href="{{ route('invoices.pdf.advanced.download', $payment->invoice_id) }}" 
            class="btn btn-success">
-            <i class="fas fa-download"></i> Download Invoice
+            <i class="fas fa-download"></i> Download Invoice Pembayaran
         </a>
     @endif
 </div>

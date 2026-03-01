@@ -72,7 +72,7 @@
     @endphp
 
     <div>
-        <div>Periode: {{ now()->format('F Y') }} (Manual)</div>
+        <div>Periode: {{ now()->format('F Y') }} </div>
     </div>
 
     <div class="divider"></div>
@@ -133,8 +133,6 @@
 
     <div class="footer text-center">
         <div>Terima kasih </div>
-        <div> support by</div>
-        <div> PT Jaringan Tiang Indonesia Group</div>
     </div>
 
     <!-- Tombol Cetak & Kembali (tidak muncul saat print) -->

@@ -27,9 +27,9 @@ function formatWaNumber($phone)
 
 function getInvoiceWaMessage($invoice)
 {
-    $periodStart = \Carbon\Carbon::parse($invoice->billing_period_start)->format('d M Y');
-    $periodEnd = \Carbon\Carbon::parse($invoice->billing_period_end)->format('d M Y');
-    $dueDate = \Carbon\Carbon::parse($invoice->due_date)->format('d M Y');
+    $periodStart = \Carbon\Carbon::parse($invoice->billing_period_start)->translatedFormat('F Y');
+    $periodEnd = \Carbon\Carbon::parse($invoice->billing_period_end)->translatedFormat('d F Y');
+    $dueDate = \Carbon\Carbon::parse($invoice->due_date)->translatedFormat('d F Y');
     $invoiceDate = \Carbon\Carbon::parse($invoice->created_at)->format('d M Y');
     $amount = $invoice->amount;
     $amountFormatted = number_format($amount, 0, ',', '.');
@@ -68,7 +68,7 @@ function getInvoiceWaMessage($invoice)
     $message .= "kirimkan bukti transfer ke nomer yang tertera dibawah ini untuk konfirmasi pembayaran.\n\n";
     $message .= "Customer Service : 081572024200\n\n";
     $message .= "Terima kasih,\n";
-    $message .= "*MARKISANET, caur*";
+    $message .= "*MARKISA.NET, caur*";
     return $message;
 }
 
