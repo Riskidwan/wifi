@@ -266,6 +266,14 @@
                         <a href="{{ route('pelanggan.edit', $p->id_pelanggan) }}" class="btn btn-link btn-warning btn-lg" data-toggle="tooltip" data-original-title="Edit">
                             <i class="fa fa-edit"></i>
                         </a>
+
+                        <form action="{{ route('pelanggan.destroy', $p->id_pelanggan) }}" method="POST" style="display:inline-block;">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-link btn-danger btn-lg" data-toggle="tooltip" data-original-title="Hapus" onclick="return confirm('Yakin ingin menghapus pelanggan {{ $p->nama_pelanggan }}? Akun PPPoE di MikroTik juga akan dihapus!')">
+                                <i class="fa fa-trash"></i>
+                            </button>
+                        </form>
                     </div>
                 </td>
             </tr>
