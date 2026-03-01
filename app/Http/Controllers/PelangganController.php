@@ -25,8 +25,6 @@ class PelangganController extends Controller
         $pelanggans = $query->get();
         $pakets = \App\Models\Paket::all();
 
-        $pelanggans = $query->paginate(10);
-
         // 🔑 Ambil PPPoE Secrets dari MikroTik
         $pppoeSecrets = [];
         try {
@@ -490,6 +488,7 @@ class PelangganController extends Controller
 
             $API->disconnect();
         }
+
 
 
 
