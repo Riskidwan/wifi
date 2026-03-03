@@ -50,9 +50,9 @@ class SettingController extends Controller
          | 2️⃣ 🔥 TEST KONEKSI MIKROTIK DULU (PENTING)
          |--------------------------------------------------------------------------
          */
+        $mikrotikWarning = null;
         try {
             $API = new RouterosAPI();
-
             $connected = $API->connect(
                 $request->ip,
                 $request->user,
@@ -60,26 +60,20 @@ class SettingController extends Controller
             );
 
             if (!$connected) {
-                return back()->withErrors([
-                    'ip' => '❌ Gagal konek MikroTik. IP / Username / Password salah atau API belum aktif.'
-                ])->withInput();
+                $mikrotikWarning = '⚠️ Konfigurasi tersimpan, TETAPI koneksi ke MikroTik Gagal (IP/Username/Password salah).';
             }
-
-            // test command kecil biar yakin benar-benar connect
-            $API->comm('/system/identity/print');
-
-            $API->disconnect();
-
+            else {
+                $API->comm('/system/identity/print');
+                $API->disconnect();
+            }
         }
         catch (\Exception $e) {
-            return back()->withErrors([
-                'ip' => '❌ Tidak bisa terhubung ke MikroTik. Pastikan API aktif & kredensial benar.'
-            ])->withInput();
+            $mikrotikWarning = '⚠️ Konfigurasi tersimpan, TETAPI tidak bisa terhubung ke MikroTik.';
         }
 
         /*
          |--------------------------------------------------------------------------
-         | 3️⃣ SIMPAN MIKROTIK SETTING (kalau sukses)
+         | 3️⃣ SIMPAN MIKROTIK SETTING
          |--------------------------------------------------------------------------
          */
         $mikrotik = MikrotikSetting::first();
@@ -160,6 +154,10 @@ class SettingController extends Controller
             'causer_id' => auth()->id(),
             'causer_type' => get_class(auth()->user()),
         ]);
+
+        if ($mikrotikWarning) {
+            return back()->with('warning', $mikrotikWarning);
+        }
 
         return back()->with('success', '✅ Konfigurasi berhasil disimpan & koneksi MikroTik valid!');
     }

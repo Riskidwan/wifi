@@ -235,39 +235,6 @@
                                 </div>
                             </form>
 
-                            <hr class="mt-5">
-                            <h4 class="text-danger"><i class="fas fa-tools"></i> Alat Server (Auto-Fix)</h4>
-                            <p class="text-muted small">Alat ini berguna saat Anda baru saja meng-upload source code ke server/hosting baru dengan database dan pelanggan lama.</p>
-                            
-                            <div class="row">
-                                <div class="col-md-6 mb-2">
-                                    <div class="card bg-light border-danger">
-                                        <div class="card-body text-center">
-                                            <h5>Sinkronisasi Data Pelanggan</h5>
-                                            <p class="small text-muted mb-3">Klik tombol ini jika Anda tidak bisa generate tagihan karena data pelanggan lama belum memiliki Paket Internet, atau jika terjadi error "Duplicate entry INV-000...".</p>
-                                            <form action="{{ route('setting.fixDataLama') }}" method="POST">
-                                                @csrf
-                                                <button type="submit" class="btn btn-warning btn-block" onclick="return confirm('Sistem akan merapikan otomatis Kode Pelanggan dan memasukkan semua pelanggan lama yang statusnya menggantung ke Paket Default. Lanjutkan?')">
-                                                    <i class="fas fa-magic"></i> Perbaiki Pelanggan Lama
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="col-md-6 mb-2">
-                                    <div class="card bg-light border-danger">
-                                        <div class="card-body text-center">
-                                            <h5>Update Database (Migrate)</h5>
-                                            <p class="small text-muted mb-3">Klik tombol ini jika halaman Konfigurasi Billing atau halaman Invoices putih blank/error karena tabel konfigurasi belum terbuat di server Anda.</p>
-                                            <a href="{{ url('/migrate-db') }}" class="btn btn-danger btn-block" onclick="return confirm('Ini akan memperbarui skema Database Anda dengan tabel-tabel baru. Lanjutkan?')">
-                                                <i class="fas fa-database"></i> Jalankan Migrate DB
-                                            </a>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
                     </div>
                 </div>
