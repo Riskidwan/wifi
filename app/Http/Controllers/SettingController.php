@@ -28,10 +28,10 @@ class SettingController extends Controller
     public function update(Request $request)
     {
         /*
-        |--------------------------------------------------------------------------
-        | 1️⃣ VALIDASI FORM
-        |--------------------------------------------------------------------------
-        */
+         |--------------------------------------------------------------------------
+         | 1️⃣ VALIDASI FORM
+         |--------------------------------------------------------------------------
+         */
         $request->validate([
             'ip' => 'required|ip',
             'user' => 'required|string',
@@ -46,10 +46,10 @@ class SettingController extends Controller
         ]);
 
         /*
-        |--------------------------------------------------------------------------
-        | 2️⃣ 🔥 TEST KONEKSI MIKROTIK DULU (PENTING)
-        |--------------------------------------------------------------------------
-        */
+         |--------------------------------------------------------------------------
+         | 2️⃣ 🔥 TEST KONEKSI MIKROTIK DULU (PENTING)
+         |--------------------------------------------------------------------------
+         */
         try {
             $API = new RouterosAPI();
 
@@ -70,17 +70,18 @@ class SettingController extends Controller
 
             $API->disconnect();
 
-        } catch (\Exception $e) {
+        }
+        catch (\Exception $e) {
             return back()->withErrors([
                 'ip' => '❌ Tidak bisa terhubung ke MikroTik. Pastikan API aktif & kredensial benar.'
             ])->withInput();
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | 3️⃣ SIMPAN MIKROTIK SETTING (kalau sukses)
-        |--------------------------------------------------------------------------
-        */
+         |--------------------------------------------------------------------------
+         | 3️⃣ SIMPAN MIKROTIK SETTING (kalau sukses)
+         |--------------------------------------------------------------------------
+         */
         $mikrotik = MikrotikSetting::first();
 
         if (!$mikrotik) {
@@ -89,7 +90,8 @@ class SettingController extends Controller
                 'username' => $request->user,
                 'password' => $request->password,
             ]);
-        } else {
+        }
+        else {
             $mikrotik->update([
                 'ip' => $request->ip,
                 'username' => $request->user,
@@ -98,10 +100,10 @@ class SettingController extends Controller
         }
 
         /*
-        |--------------------------------------------------------------------------
-        | 4️⃣ SIMPAN BILLING CONFIG
-        |--------------------------------------------------------------------------
-        */
+         |--------------------------------------------------------------------------
+         | 4️⃣ SIMPAN BILLING CONFIG
+         |--------------------------------------------------------------------------
+         */
         $billing = BillingConfig::first();
 
         if (!$billing) {
@@ -113,7 +115,8 @@ class SettingController extends Controller
                 'billing_start_day' => $request->billing_start_day,
                 'due_days_after_period' => $request->due_days_after_period,
             ]);
-        } else {
+        }
+        else {
             $billing->update([
                 'company_name' => $request->company_name,
                 'company_address' => $request->company_address,
@@ -124,20 +127,33 @@ class SettingController extends Controller
             ]);
         }
 
+        // ==========================================
+        // CASCADE: Update Jatuh Tempo Tagihan Unpaid
+        // ==========================================
+        $newDueDays = $request->due_days_after_period ?? 5;
+        $unpaidInvoices = \App\Models\Invoice::where('status', 'unpaid')->get();
+
+        foreach ($unpaidInvoices as $inv) {
+            $start = \Carbon\Carbon::parse($inv->billing_period_start);
+            $inv->update([
+                'due_date' => $start->copy()->addDays($newDueDays - 1)
+            ]);
+        }
+
         /*
-        |--------------------------------------------------------------------------
-        | 5️⃣ SIMPAN KE SESSION (biar dipakai realtime)
-        |--------------------------------------------------------------------------
-        */
+         |--------------------------------------------------------------------------
+         | 5️⃣ SIMPAN KE SESSION (biar dipakai realtime)
+         |--------------------------------------------------------------------------
+         */
         $request->session()->put('ip', $request->ip);
         $request->session()->put('user', $request->user);
         $request->session()->put('password', $request->password);
 
         /*
-        |--------------------------------------------------------------------------
-        | 6️⃣ ACTIVITY LOG
-        |--------------------------------------------------------------------------
-        */
+         |--------------------------------------------------------------------------
+         | 6️⃣ ACTIVITY LOG
+         |--------------------------------------------------------------------------
+         */
         Activity::create([
             'log_name' => 'setting',
             'description' => 'Mengupdate konfigurasi MikroTik & Billing',

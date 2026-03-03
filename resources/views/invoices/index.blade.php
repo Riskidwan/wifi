@@ -10,7 +10,7 @@
                 <div class="d-flex align-items-left align-items-md-center flex-column flex-md-row">
                     <div>
                         <h2 class="text-white pb-2 fw-bold">Manajemen Tagihan</h2>
-                        <h5 class="text-white op-7 mb-2">Total: {{ $invoices->total() }} Tagihan</h5>
+                        <h5 class="text-white op-7 mb-2">Total: {{ $invoices->count() }} Tagihan</h5>
                     </div>
                     <div class="ml-md-auto py-2 py-md-0">
                         <form action="{{ route('invoices.generate') }}" method="POST" class="d-inline">
@@ -83,7 +83,7 @@
                                     <tbody>
                                         @foreach($invoices as $invoice)
                                         <tr>
-                                            <td>{{ $loop->iteration + ($invoices->currentPage() - 1) * $invoices->perPage() }}</td>
+                                            <td>{{ $loop->iteration }}</td>
                                             <td><code>{{ $invoice->invoice_number }}</code></td>
                                             <td>
                                                 {{ $invoice->pelanggan->kode_pelanggan }}<br>
@@ -140,7 +140,7 @@
                                 </table>
                             </div>
 
-                            {{ $invoices->appends(request()->query())->links() }}
+                            
                         </div>
                     </div>
                 </div>

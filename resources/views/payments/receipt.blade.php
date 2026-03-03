@@ -5,22 +5,45 @@
     <title>Struk Pembayaran</title>
     <style>
         body {
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            max-width: 400px;
-            margin: 0 auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+            color: #000;
+            background: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+        }
+        .receipt-container {
+            background: #fff;
+            width: 80mm; /* Standard thermal printer width */
             padding: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
         }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
+        .text-left { text-align: left; }
         .bold { font-weight: bold; }
-        .divider { border-top: 1px dashed #000; margin: 10px 0; }
-        .footer { margin-top: 20px; font-size: 10px; }
+        .divider { border-top: 2px dashed #000; margin: 10px 0; }
+        .footer { margin-top: 20px; font-size: 12px; }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 2px 0; }
+        td { padding: 4px 0; vertical-align: top; }
 
-        /* Sembunyikan tombol saat print */
+        /* Sembunyikan styling dan tombol saat print */
         @media print {
+            body {
+                background: none;
+                padding: 0;
+                display: block;
+            }
+            .receipt-container {
+                box-shadow: none;
+                border: none;
+                width: 100%;
+                max-width: 80mm;
+                padding: 0;
+                margin: 0;
+            }
             .no-print {
                 display: none !important;
             }
@@ -28,6 +51,7 @@
     </style>
 </head>
 <body>
+<div class="receipt-container">
     <div class="text-center">
         <div class="bold">{{ $billingConfig->company_name ?? 'PEMALANG' }}</div>
         @if($billingConfig && $billingConfig->company_address)
@@ -143,6 +167,8 @@
         <a href="{{ route('payments.index') }}" class="btn btn-secondary">
             🔙 Kembali
         </a>
+    </div>
+
     </div>
 
     <script>

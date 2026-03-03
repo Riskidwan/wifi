@@ -71,7 +71,7 @@ function getInvoiceWaMessage($invoice)
     $message .= "kirimkan bukti transfer ke nomer yang tertera dibawah ini untuk konfirmasi pembayaran.\n\n";
     $message .= "Customer Service : 081572024200\n\n";
     $message .= "Terima kasih,\n";
-    $message .= "*MARKISA.NET, caur*";
+    $message .= "*MARKISANET, caur*";
     return $message;
 }
 
