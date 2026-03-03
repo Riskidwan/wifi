@@ -91,6 +91,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('paket', PaketInternetController::class)->except(['show']);
 
     // ⚙️ Setting MikroTik
+    Route::post('/settings/fix-data-lama', [SettingController::class, 'fixDataLama'])
+    ->name('setting.fixDataLama');
     Route::get('/setting', [SettingController::class, 'index'])->name('setting.index');
     Route::post('/setting', [SettingController::class, 'update'])->name('setting.update');
 
