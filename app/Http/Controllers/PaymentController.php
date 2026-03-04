@@ -26,9 +26,14 @@ class PaymentController extends Controller
             abort(404, 'Invoice ID tidak ditemukan');
         }
         $invoice = Invoice::with('pelanggan')->findOrFail($invoice_id);
-        return view('payments.create', compact('invoice'));
+        $pelanggan = $invoice->pelanggan;
+        $paymentCount = \App\Models\Payment::where('pelanggan_id', $pelanggan->id_pelanggan)->count() + 1;
+        $receiptNumber = $pelanggan->kode_pelanggan . str_pad($paymentCount, 2, '0', STR_PAD_LEFT) . date('dmy');
+
+        return view('payments.create', compact('invoice', 'receiptNumber'));
     }
-    public function store(Request $request)    {
+    public function store(Request $request)
+    {
         $request->validate([
             'amount_paid' => 'required|numeric|min:1',
             'payment_date' => 'required|date',
@@ -37,8 +42,8 @@ class PaymentController extends Controller
             'cashier_name' => 'required|string',
         ]);
 
-        $uangDibayar = $request->uang_dibayar_raw ? (int)str_replace('.', '', $request->uang_dibayar_raw) : null;
-        $kembalian = $request->kembalian_raw ? (int)str_replace('.', '', $request->kembalian_raw) : null;
+        $uangDibayar = $request->uang_dibayar_raw ? (int) str_replace('.', '', $request->uang_dibayar_raw) : null;
+        $kembalian = $request->kembalian_raw ? (int) str_replace('.', '', $request->kembalian_raw) : null;
 
         if ($request->has('is_manual')) {
             $request->validate([
@@ -68,8 +73,11 @@ class PaymentController extends Controller
             foreach ($unpaidInvoices as $invoice) {
                 $total = $invoice->total_amount ?? $invoice->amount;
 
+                $paymentCount = \App\Models\Payment::where('pelanggan_id', $pelanggan->id_pelanggan)->count() + 1;
+                $receiptNumber = $pelanggan->kode_pelanggan . str_pad($paymentCount, 2, '0', STR_PAD_LEFT) . date('dmy');
+
                 \App\Models\Payment::create([
-                    'invoice_id' => $invoice->id, // ✅ sekarang $invoice sudah ada
+                    'invoice_id' => $invoice->id,
                     'pelanggan_id' => $pelanggan->id_pelanggan,
                     'payment_method' => $request->payment_method,
                     'reference_number' => $request->reference_number ?? null,
@@ -79,7 +87,7 @@ class PaymentController extends Controller
                     'payment_date' => $request->payment_date,
                     'notes' => "Pembayaran manual {$request->jumlah_bulan} bulan",
                     'status' => 'completed',
-                    'receipt_number' => $request->receipt_number,
+                    'receipt_number' => $receiptNumber,
                     'cashier_name' => $request->cashier_name,
                 ]);
 
@@ -101,7 +109,46 @@ class PaymentController extends Controller
 
             return redirect()->route('payments.receipt', $lastPayment->id)
                 ->with('success', "Berhasil bayar {$request->jumlah_bulan} bulan untuk {$pelanggan->nama_pelanggan}!");
-        }    }
+        } else {
+            $invoice = Invoice::findOrFail($request->invoice_id);
+            $pelanggan = $invoice->pelanggan;
+
+            if ($pelanggan->status_akun !== 'active') {
+                $pelanggan->update(['status_akun' => 'active']);
+                $this->updatePPPoESecretStatusOnMikrotik($pelanggan->username_pppoe, 'active');
+            }
+
+            $paymentCount = \App\Models\Payment::where('pelanggan_id', $pelanggan->id_pelanggan)->count() + 1;
+            $receiptNumber = $pelanggan->kode_pelanggan . str_pad($paymentCount, 2, '0', STR_PAD_LEFT) . date('dmy');
+
+            $payment = \App\Models\Payment::create([
+                'invoice_id' => $invoice->id,
+                'pelanggan_id' => $pelanggan->id_pelanggan,
+                'payment_method' => $request->payment_method,
+                'reference_number' => $request->reference_number ?? null,
+                'amount_paid' => $request->amount_paid,
+                'uang_dibayar' => $uangDibayar,
+                'kembalian' => $kembalian,
+                'payment_date' => $request->payment_date,
+                'notes' => $request->notes ?? "Pembayaran Tagihan {$invoice->invoice_number}",
+                'status' => 'completed',
+                'receipt_number' => $receiptNumber,
+                'cashier_name' => $request->cashier_name,
+            ]);
+
+            $invoice->update(['status' => 'paid']);
+
+            Activity::create([
+                'log_name' => 'payment',
+                'description' => 'Pembayaran tagihan oleh ' . $pelanggan->nama_pelanggan . ' sebesar Rp ' . number_format($request->amount_paid, 0, ',', '.'),
+                'causer_id' => auth()->id(),
+                'causer_type' => get_class(auth()->user()),
+            ]);
+
+            return redirect()->route('payments.receipt', $payment->id)
+                ->with('success', "Berhasil menerima pembayaran dari {$pelanggan->nama_pelanggan}!");
+        }
+    }
 
     // Method MikroTik (enable/disable)
     private function updatePPPoESecretStatusOnMikrotik($username, $status)
@@ -140,19 +187,33 @@ class PaymentController extends Controller
         return view('payments.show', compact('payment'));
     }
 
-    public function createManual()    {
+    public function createManual()
+    {
         $pelanggans = \App\Models\Pelanggan::whereNotNull('id_paket') // cukup pastikan punya paket
-            ->with(['paket', 'invoices' => function ($q) {
-            $q->where('status', 'unpaid');
-        }])
+            ->with([
+                'paket',
+                'invoices' => function ($q) {
+                    $q->where('status', 'unpaid');
+                }
+            ])
             ->get(); // ✅ jangan filter status_akun
 
-        return view('payments.create-manual', compact('pelanggans'));    }
-    public function receipt(Payment $payment)    {
+        $nextReceipts = [];
+        $dateStr = date('dmy');
+        foreach ($pelanggans as $p) {
+            $count = \App\Models\Payment::where('pelanggan_id', $p->id_pelanggan)->count() + 1;
+            $nextReceipts[$p->id_pelanggan] = $p->kode_pelanggan . str_pad($count, 2, '0', STR_PAD_LEFT) . $dateStr;
+        }
+
+        return view('payments.create-manual', compact('pelanggans', 'nextReceipts'));
+    }
+    public function receipt(Payment $payment)
+    {
         // Pastikan relasi dimuat
         $payment->load('pelanggan', 'invoice');
 
         $billingConfig = \App\Models\BillingConfig::first();
 
-        return view('payments.receipt', compact('payment', 'billingConfig'));    }
+        return view('payments.receipt', compact('payment', 'billingConfig'));
+    }
 }

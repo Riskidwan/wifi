@@ -103,9 +103,9 @@
 
                                 <!-- Nomor Struk -->
                                 <div class="form-group">
-                                    <label>Nomor Struk</label>
+                                    <label>Nomor Struk <span class="text-secondary">(Otomatis)</span></label>
                                     <input type="text" name="receipt_number" class="form-control" 
-                                           value="STRUK-{{ now()->format('Ymd') }}-{{ strtoupper(substr(uniqid(), -6)) }}" 
+                                           value="Otomatis mengikuti ID Pelanggan" 
                                            readonly>
                                 </div>
 
@@ -249,10 +249,18 @@ $(document).ready(function() {
     });
 }
 
+    const nextReceipts = @json($nextReceipts);
+
     $('select[name="pelanggan_id"]').on('change', function() {
         let pelangganId = $(this).val();
         loadInvoiceInfo(pelangganId);
         hitungSemua();
+
+        if (pelangganId && nextReceipts[pelangganId]) {
+            $('input[name="receipt_number"]').val(nextReceipts[pelangganId]);
+        } else {
+            $('input[name="receipt_number"]').val('Otomatis mengikuti ID Pelanggan');
+        }
     });
 
     $('input[name="jumlah_bulan"]').on('change keyup', hitungSemua);
