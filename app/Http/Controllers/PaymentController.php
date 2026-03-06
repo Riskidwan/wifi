@@ -216,4 +216,121 @@ class PaymentController extends Controller
 
         return view('payments.receipt', compact('payment', 'billingConfig'));
     }
+
+    /**
+     * 📶 Response JSON untuk Bluetooth Print App (Android)
+     * Format: JSON_FORCE_OBJECT sesuai dokumentasi mate.bluetoothprint
+     * Printer: Thermal 58mm / 48mm area cetak / 32 karakter per baris
+     */
+    public function receiptJson(Payment $payment)
+    {
+        \Carbon\Carbon::setLocale('id');
+        $payment->load('pelanggan.paket', 'invoice');
+        $billingConfig = \App\Models\BillingConfig::first();
+
+        $W = 32;
+        $divider = str_repeat('-', $W);
+
+        // Helper baris kiri-kanan
+        $lrLine = function ($left, $right) use ($W) {
+            $space = max(1, $W - mb_strlen($left) - mb_strlen($right));
+            return $left . str_repeat(' ', $space) . $right;
+        };
+
+        // Data perusahaan
+        $companyName = $billingConfig->company_name ?? 'PEMALANG';
+        $companyAddr = $billingConfig->company_address ?? '';
+        $companyPhone = $billingConfig->company_phone ?? '0895800439251';
+
+        // Data paket
+        $paket = $payment->pelanggan->paket;
+        if ($paket) {
+            $hargaDasar = $paket->harga;
+            $diskonPersen = $paket->diskon_aktif ? ($paket->diskon_persen ?? 0) : 0;
+            $ppnPersen = $paket->ppn_aktif ? ($paket->ppn_persen ?? 11) : 0;
+            $diskon = $hargaDasar * ($diskonPersen / 100);
+            $ppn = $hargaDasar * ($ppnPersen / 100);
+            $total = $hargaDasar + $ppn - $diskon;
+            $namaPaket = $paket->nama_paket;
+        } else {
+            $hargaDasar = $payment->amount_paid;
+            $diskonPersen = 0;
+            $ppnPersen = 0;
+            $diskon = 0;
+            $ppn = 0;
+            $total = $payment->amount_paid;
+            $namaPaket = '-';
+        }
+
+        $fHarga = 'Rp.' . number_format($hargaDasar, 0, ',', '.');
+        $fPpn = 'Rp.' . number_format($ppn, 0, ',', '.');
+        $fDiskon = 'Rp.' . number_format($diskon, 0, ',', '.');
+        $fTotal = 'Rp ' . number_format($total, 0, ',', '.');
+        $fUang = $payment->uang_dibayar ? 'Rp ' . number_format($payment->uang_dibayar, 0, ',', '.') : '';
+        $fKembal = $payment->kembalian !== null ? 'Rp ' . number_format($payment->kembalian, 0, ',', '.') : '';
+
+        $periode = now()->translatedFormat('F Y');
+        $tanggal = now()->translatedFormat('d F Y H:i');
+
+        // ===== Bangun array JSON =====
+        $a = [];
+
+        // -- Header Toko --
+        $a[] = (object) ['type' => 0, 'content' => $companyName, 'bold' => 1, 'align' => 1, 'format' => 2];
+        if ($companyAddr) {
+            $a[] = (object) ['type' => 0, 'content' => $companyAddr, 'bold' => 0, 'align' => 1, 'format' => 0];
+        }
+        $a[] = (object) ['type' => 0, 'content' => 'CS: ' . $companyPhone, 'bold' => 0, 'align' => 1, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => $divider, 'bold' => 0, 'align' => 0, 'format' => 0];
+
+        // -- Judul --
+        $a[] = (object) ['type' => 0, 'content' => 'BUKTI PEMBAYARAN', 'bold' => 1, 'align' => 1, 'format' => 2];
+        $a[] = (object) ['type' => 0, 'content' => 'No. Struk: ' . $payment->receipt_number, 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => 'Tanggal  : ' . $tanggal, 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => $divider, 'bold' => 0, 'align' => 0, 'format' => 0];
+
+        // -- Info Pelanggan --
+        $a[] = (object) ['type' => 0, 'content' => 'ID PEL: ' . $payment->pelanggan->kode_pelanggan, 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => 'Nama  : ' . $payment->pelanggan->nama_pelanggan, 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => $divider, 'bold' => 0, 'align' => 0, 'format' => 0];
+
+        // -- Periode --
+        $a[] = (object) ['type' => 0, 'content' => 'Periode: ' . $periode, 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => $divider, 'bold' => 0, 'align' => 0, 'format' => 0];
+
+        // -- Detail Paket --
+        $a[] = (object) ['type' => 0, 'content' => $lrLine('Paket', $namaPaket), 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => $lrLine('Harga', $fHarga), 'bold' => 0, 'align' => 0, 'format' => 0];
+        if ($ppnPersen > 0) {
+            $a[] = (object) ['type' => 0, 'content' => $lrLine('PPN ' . $ppnPersen . '%', $fPpn), 'bold' => 0, 'align' => 0, 'format' => 0];
+        }
+        if ($diskonPersen > 0) {
+            $a[] = (object) ['type' => 0, 'content' => $lrLine('Diskon ' . $diskonPersen . '%', $fDiskon), 'bold' => 0, 'align' => 0, 'format' => 0];
+        }
+        $a[] = (object) ['type' => 0, 'content' => $lrLine('TOTAL', $fTotal), 'bold' => 1, 'align' => 0, 'format' => 3];
+
+        // -- Uang & Kembalian --
+        if ($payment->uang_dibayar) {
+            $a[] = (object) ['type' => 0, 'content' => $divider, 'bold' => 0, 'align' => 0, 'format' => 0];
+            $a[] = (object) ['type' => 0, 'content' => $lrLine('Uang Dibayar', $fUang), 'bold' => 0, 'align' => 0, 'format' => 0];
+            $a[] = (object) ['type' => 0, 'content' => $lrLine('Kembalian', $fKembal), 'bold' => 0, 'align' => 0, 'format' => 0];
+        }
+
+        // -- Metode & Kasir --
+        $a[] = (object) ['type' => 0, 'content' => $divider, 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => 'Metode: ' . ucfirst($payment->payment_method), 'bold' => 0, 'align' => 0, 'format' => 0];
+        if ($payment->reference_number) {
+            $a[] = (object) ['type' => 0, 'content' => 'Ref   : ' . $payment->reference_number, 'bold' => 0, 'align' => 0, 'format' => 0];
+        }
+        $a[] = (object) ['type' => 0, 'content' => 'Kasir : ' . $payment->cashier_name, 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => $divider, 'bold' => 0, 'align' => 0, 'format' => 0];
+
+        // -- Footer --
+        $a[] = (object) ['type' => 0, 'content' => 'Terima kasih', 'bold' => 0, 'align' => 1, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => ' ', 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => ' ', 'bold' => 0, 'align' => 0, 'format' => 0];
+        $a[] = (object) ['type' => 0, 'content' => ' ', 'bold' => 0, 'align' => 0, 'format' => 0];
+
+        return response()->json($a, 200, [], JSON_FORCE_OBJECT);
+    }
 }

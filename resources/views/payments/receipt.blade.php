@@ -1,7 +1,7 @@
 @php
     \Carbon\Carbon::setLocale('id');
 
-    $W = 32; // 32 karakter per baris
+    $W = 32;
     $divider = str_repeat('-', $W);
 
     function centerText($text, $width)
@@ -91,6 +91,9 @@
     $lines[] = '';
 
     $receiptText = implode("\n", $lines);
+
+    // URL JSON untuk Bluetooth Print App
+    $jsonUrl = route('payments.receipt.json', $payment->id);
 @endphp
 <!DOCTYPE html>
 <html>
@@ -139,23 +142,33 @@
         .aksi {
             margin-top: 15px;
             text-align: center;
+            width: 100%;
+            max-width: 320px;
         }
 
-        .aksi button,
-        .aksi a {
-            display: inline-block;
-            padding: 10px 24px;
+        .aksi a,
+        .aksi button {
+            display: block;
+            width: 100%;
+            padding: 12px;
             font-size: 15px;
             font-weight: bold;
-            margin: 5px;
+            margin: 6px 0;
             cursor: pointer;
-            border-radius: 6px;
+            border-radius: 8px;
             text-decoration: none;
+            text-align: center;
             border: none;
         }
 
-        .btn-cetak {
+        .btn-bt {
             background: #4CAF50;
+            color: #fff;
+            font-size: 17px;
+        }
+
+        .btn-print {
+            background: #2196F3;
             color: #fff;
         }
 
@@ -164,10 +177,19 @@
             color: #fff;
         }
 
-        /* ======================================
-           PRINT: Responsif ke lebar kertas 48mm
-           Printer apapun bisa pakai
-           ====================================== */
+        .info-app {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+            text-align: center;
+            max-width: 320px;
+        }
+
+        .info-app a {
+            color: #2196F3;
+        }
+
+        /* ===== PRINT MODE ===== */
         @page {
             size: 48mm auto;
             margin: 0;
@@ -191,22 +213,14 @@
             }
 
             pre.struk {
-                /*
-                 * Kunci responsif: font di-scale penuh ke lebar kertas.
-                 * 32 karakter monospace Courier New ≈ 19.2em (0.6em per char)
-                 * 48mm ÷ 19.2 = 2.5mm per em ≈ ~9.5pt
-                 * Dibesarkan sedikit agar tebal dan penuh di kertas.
-                 */
-                font-size: 1.35mm;
-                /* 1 karakter = ~0.8mm lebar */
                 font-size: calc(48mm / 38);
-                /* Otomatis sesuai lebar kertas */
                 font-weight: 900;
                 line-height: 1.5;
                 overflow: visible;
             }
 
-            .aksi {
+            .aksi,
+            .info-app {
                 display: none !important;
             }
         }
@@ -220,8 +234,21 @@
     </div>
 
     <div class="aksi">
-        <button class="btn-cetak" onclick="window.print()">🖨️ Cetak Struk</button>
+        {{-- Tombol utama: Cetak via Bluetooth Print App (Android) --}}
+        <a class="btn-bt" href="my.bluetoothprint.scheme://{{ $jsonUrl }}">
+            📶 Cetak Thermal (Bluetooth)
+        </a>
+
+        {{-- Tombol cadangan: Print dialog browser biasa --}}
+        <button class="btn-print" onclick="window.print()">🖨️ Cetak (Print Dialog)</button>
+
         <a class="btn-kembali" href="{{ route('payments.index') }}">🔙 Kembali</a>
+    </div>
+
+    <div class="info-app">
+        📱 Tombol "Cetak Thermal" memerlukan aplikasi
+        <a href="https://play.google.com/store/apps/details?id=mate.bluetoothprint" target="_blank">Bluetooth Print</a>
+        di HP Android. Aktifkan fitur <b>Browser Print</b> di dalam aplikasi tersebut.
     </div>
 
 </body>

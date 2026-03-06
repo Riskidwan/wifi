@@ -175,6 +175,9 @@ Route::middleware(['auth'])->group(function () {
     // Struk pembayaran
     Route::get('/payments/{payment}/receipt', [PaymentController::class, 'receipt'])->name('payments.receipt');
 
+    // 📶 Bluetooth Print App - JSON Response
+    Route::get('/payments/{payment}/receipt-json', [PaymentController::class, 'receiptJson'])->name('payments.receipt.json');
+
     // WhatsApp Export
     Route::get('/invoices/export-wa', [InvoiceController::class, 'exportWa'])->name('invoices.export.wa');
     Route::get('/invoices/wa-bulk', [InvoiceController::class, 'waBulk'])->name('invoices.wa.bulk');
