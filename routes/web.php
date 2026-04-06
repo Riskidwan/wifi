@@ -107,6 +107,9 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('pelanggan', PelangganController::class)->except(['show']);
     Route::get('/pelanggan/{id}/detail', [PelangganController::class, 'detail'])->name('pelanggan.detail');
     Route::get('/pelanggan/preview.kode', [App\Http\Controllers\PelangganController::class, 'previewKode'])->name('pelanggan.preview.kode');
+    Route::post('/pelanggan/import-excel', [PelangganController::class, 'importExcel'])->name('pelanggan.import.excel');
+    Route::get('/pelanggan/export', [PelangganController::class, 'exportExcel'])->name('pelanggan.export');
+    Route::get('/pelanggan/import-template', [PelangganController::class, 'exportTemplate'])->name('pelanggan.import.template');
 
     // 🧾 Tagihan (Invoices)
     Route::resource('invoices', InvoiceController::class)->except(['create', 'store']);

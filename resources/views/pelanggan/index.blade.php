@@ -17,6 +17,15 @@
                         <button class="btn btn-primary" data-toggle="modal" data-target="#addPelangganModal">
                             <i class="fa fa-plus"></i> Tambah Pelanggan
                         </button>
+                        <button class="btn btn-success ml-2" data-toggle="modal" data-target="#importExcelModal">
+                            <i class="fas fa-file-import"></i> Import Excel
+                        </button>
+                        <a href="{{ route('pelanggan.import.template') }}" class="btn btn-secondary ml-2">
+                             <i class="fas fa-file-download"></i> Download Template
+                        </a>
+                        <a href="{{ route('pelanggan.export') }}" class="btn btn-info ml-2">
+                            <i class="fas fa-file-excel"></i> Export Excel
+                        </a>
                     </div>
                 </div>
             </div>
@@ -449,5 +458,45 @@ $('#addPelangganModal').on('shown.bs.modal', function () {
 });
 </script>
 @endpush
+
+<!-- Modal Import Excel -->
+<div class="modal fade" id="importExcelModal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import Pelanggan dari Excel</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <form action="{{ route('pelanggan.import.excel') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <p class="mb-0"><strong>Cara Penggunaan:</strong></p>
+                        <ul class="mb-0">
+                            <li><strong>Opsi 1 (File):</strong> Pilih file Excel (.xlsx) atau CSV yang berisi data pelanggan. <a href="{{ route('pelanggan.import.template') }}" class="text-primary fw-bold">[Download Template Excel]</a></li>
+                            <li><strong>Opsi 2 (Teks):</strong> Copy-paste baris data dari spreadsheet ke kotak di bawah.</li>
+                            <li>Sistem akan mendeteksi Nama, Paket, No HP, Alamat, dan ID secara otomatis.</li>
+                        </ul>
+                    </div>
+                    <div class="form-group">
+                        <label>Pilih File Excel (.xlsx / .csv)</label>
+                        <input type="file" name="file" class="form-control" accept=".xlsx,.xls,.csv">
+                    </div>
+                    <div class="text-center my-2">-- ATAU --</div>
+                    <div class="form-group">
+                        <label>Paste Data Excel di Sini</label>
+                        <textarea name="data_text" class="form-control" rows="6" placeholder="Contoh:&#10;931258	Irvan Purwanto	upto20	082329174200	Tambakrejo"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Mulai Import</button>
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 @endsection
