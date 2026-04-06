@@ -45,12 +45,85 @@ class PelangganImport implements ToModel, WithHeadingRow, WithValidation
 
     public function model(array $row)
     {
+        $rawUsername = $row['username_pppoe'] ?? null;
         $nama = $row['nama_pelanggan'] ?? null;
-        if (empty($nama)) return null;
+        $password = $row['password_pppoe'] ?? null;
+
+        if (empty($rawUsername) && empty($nama) && empty($password)) return null;
+
+        $username = $rawUsername;
+        $kode = null;
+
+        // 1. Detect Combined "Username / Password" format
+        if (!empty($username) && Str::contains($username, ' / ')) {
+            $parts = explode(' / ', $username);
+            $username = trim($parts[0]);
+            if (empty($password)) {
+                $password = trim($parts[1]);
+            }
+        }
+
+        // 2. MikroTik REVERSE LOOKUP (By Password)
+        // If username is unknown, try finding it in MikroTik using the password
+        if (empty($username) && !empty($password) && $this->isMikrotikConnected) {
+            $foundSecrets = $this->mikrotikAPI->comm('/ppp/secret/print', ['?password' => (string)$password]);
+            if (!empty($foundSecrets)) {
+                $username = $foundSecrets[0]['name'] ?? null;
+                // If we found a name, let's also try to extract information from it later
+                Log::info("Reverse Lookup: Found username '{$username}' in MikroTik using password '{$password}'");
+            }
+        }
+
+        // 3. Detect Pattern [KODE]_[NAMA]@[DOMAIN]
+        // Example: 0001_WASMIATI_INDAH@pikenet
+        if (!empty($username) && preg_match('/^(\d+)_([^@]+)(?:@.*)?$/', $username, $matches)) {
+            $extractedKode = $matches[1];
+            $extractedNama = str_replace(['_', '.'], ' ', $matches[2]);
+
+            if (empty($kode)) {
+                $kode = $extractedKode;
+            }
+            if (empty($nama)) {
+                $nama = ucwords(strtolower($extractedNama));
+            }
+
+            // Sync nextKode to avoid duplicates
+            $numericKode = intval($extractedKode);
+            if ($numericKode >= $this->nextKode) {
+                $this->nextKode = $numericKode + 1;
+            }
+        }
+
+        // 4. Password-to-Code Mapping (If code still null and password is 4-digit number)
+        if (empty($kode) && !empty($password) && preg_match('/^\d{4}$/', $password)) {
+            $kode = $password;
+            
+            // Sync nextKode
+            $numericKode = intval($kode);
+            if ($numericKode >= $this->nextKode) {
+                $this->nextKode = $numericKode + 1;
+            }
+        }
+
+        // 5. Finalize Name & Username if still empty
+        if (empty($nama)) {
+            $nama = $username;
+        }
+
+        if (empty($username)) {
+            $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $nama)) . '_' . rand(100, 999);
+        }
+
+        if (empty($nama)) { // Fallback if still null
+            $nama = "User " . ($kode ?? rand(1000, 9999));
+        }
+
+        // 6. Finalize Kode if still empty
+        if (empty($kode)) {
+            $kode = str_pad($this->nextKode++, 4, '0', STR_PAD_LEFT);
+        }
 
         // Clean keys for slugified headings
-        $username = $row['username_pppoe'] ?? null;
-        $password = $row['password_pppoe'] ?? null;
         $namaPaket = $row['nama_paket'] ?? null;
         $status = $row['status_akun'] ?? 'active';
         $email = $row['email'] ?? null;
@@ -59,19 +132,14 @@ class PelangganImport implements ToModel, WithHeadingRow, WithValidation
         $alamat = $row['alamat'] ?? null;
         $maps = $row['google_maps_url'] ?? null;
 
-        if (empty($username)) {
-            $username = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $nama)) . '_' . rand(100, 999);
-        }
-
-        // 🔄 MikroTik Sync & Validation
-        if ($this->isMikrotikConnected) {
+        // 🔄 MikroTik Sync & Validation (Fetch password if still empty)
+        if ($this->isMikrotikConnected && !empty($username)) {
             $existing = $this->mikrotikAPI->comm('/ppp/secret/print', ['?name' => (string)$username]);
             if (!empty($existing)) {
                 $mtPass = $existing[0]['password'] ?? '';
                 if (empty($password)) {
-                    $password = $mtPass; // Ambil password dari MikroTik jika di excel kosong
+                    $password = $mtPass; 
                 } elseif ($password != $mtPass) {
-                    // VALIDASI KETAT: Jika password di excel beda dengan MikroTik, SKIP.
                     Log::warning("Import Skip: Password mismatch for {$username}. Excel: {$password}, MikroTik: {$mtPass}");
                     return null;
                 }
@@ -79,7 +147,7 @@ class PelangganImport implements ToModel, WithHeadingRow, WithValidation
         }
 
         if (empty($password)) {
-            $password = Str::random(8); // Fallback password
+            $password = Str::random(8); 
         }
 
         // Package Mapping
@@ -90,9 +158,6 @@ class PelangganImport implements ToModel, WithHeadingRow, WithValidation
             });
             if ($paket) $id_paket = $paket->id;
         }
-
-        // Auto-increment Kode Pelanggan (0001, 0002, ...)
-        $kode = str_pad($this->nextKode++, 4, '0', STR_PAD_LEFT);
 
         $pelanggan = new Pelanggan([
             'kode_pelanggan' => $kode,
@@ -135,7 +200,7 @@ class PelangganImport implements ToModel, WithHeadingRow, WithValidation
     public function rules(): array
     {
         return [
-            'nama_pelanggan' => 'required',
+            'nama_pelanggan' => 'nullable',
         ];
     }
 
