@@ -124,13 +124,13 @@ class PelangganImport implements ToModel, WithHeadingRow, WithValidation
         }
 
         // Clean keys for slugified headings
-        $namaPaket = $row['nama_paket'] ?? null;
-        $status = $row['status_akun'] ?? 'active';
+        $namaPaket = $row['nama_paket'] ?? $row['paket'] ?? null;
+        $status = $row['status_akun'] ?? $row['status'] ?? 'active';
         $email = $row['email'] ?? null;
-        $noHp = $row['no_hp'] ?? null;
-        $briva = $row['briva'] ?? null;
+        $noHp = $row['no_hp'] ?? $row['hp'] ?? $row['telepon'] ?? null;
+        $briva = $row['briva'] ?? $row['norekening_briva'] ?? $row['no_rekening_briva'] ?? $row['nomor_rekening_briva'] ?? null;
         $alamat = $row['alamat'] ?? null;
-        $maps = $row['google_maps_url'] ?? null;
+        $maps = $row['google_maps_url'] ?? $row['maps'] ?? $row['google_maps'] ?? null;
 
         // 🔄 MikroTik Sync & Validation (Fetch password if still empty)
         if ($this->isMikrotikConnected && !empty($username)) {
